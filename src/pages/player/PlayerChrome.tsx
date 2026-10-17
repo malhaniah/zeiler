@@ -12,6 +12,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { WindowControls } from "../../chrome/WindowControls";
 import { CopyField } from "../../components/ui";
 import { ControlsBar } from "./ControlsBar";
 import type { Backend, MpvState, Phase } from "./mpv-state";
@@ -196,7 +197,7 @@ export function PlayerChrome({
 
       {notice && (
         <button
-          className="absolute right-4 top-16 max-w-sm truncate rounded-md bg-danger/20 px-3 py-2 text-left text-xs text-ink"
+          className="absolute right-4 top-24 z-10 max-w-sm truncate rounded-md bg-danger/20 px-3 py-2 text-left text-xs text-ink"
           title={notice}
           onClick={dismissNotice}
         >
@@ -204,7 +205,8 @@ export function PlayerChrome({
         </button>
       )}
 
-      {/* top bar */}
+      {/* top bar (the screen covers the shell's title bar, so the window controls are
+          here too; no drag area: it would fight the double-click for fullscreen) */}
       <div
         className={`absolute inset-x-0 top-0 flex items-center gap-3 bg-gradient-to-b from-canvas/85 to-transparent px-4 pb-8 pt-3 transition-opacity duration-300 ${
           controlsShown ? "opacity-100" : "pointer-events-none opacity-0"
@@ -218,6 +220,7 @@ export function PlayerChrome({
         </button>
         <div className="min-w-0 flex-1 truncate text-sm font-medium">{title}</div>
         {infoHash && phase.kind === "playing" && <TorrentStats infoHash={infoHash} compact />}
+        <WindowControls />
       </div>
 
       {/* bottom control bar */}

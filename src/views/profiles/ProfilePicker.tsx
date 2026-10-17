@@ -1,5 +1,6 @@
 import { Lock, Settings2 } from "lucide-react";
 import { useState } from "react";
+import { WindowControls } from "../../chrome/WindowControls";
 import { ErrorNote } from "../../components/ui";
 import { errorMessage, profileSelect } from "../../lib/ipc";
 import { useProfiles } from "../../lib/profiles";
@@ -33,6 +34,11 @@ export function ProfilePicker({ onManage }: { onManage: () => void }) {
         if (e.key === "Escape" && canClose) setPicking(false);
       }}
     >
+      {/* over the shell's title bar, or the only screen at launch (a PIN profile) */}
+      <div data-tauri-drag-region className="absolute inset-x-0 top-0 h-20" />
+      <div className="absolute right-5 top-5">
+        <WindowControls />
+      </div>
       <h1 className="font-display text-[40px] font-medium tracking-tight text-ink">
         Who's watching?
       </h1>

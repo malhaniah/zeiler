@@ -1,10 +1,9 @@
 import { ArrowLeft, Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { playerActive } from "../lib/playback-handoff";
 import { useSearch } from "../lib/store";
 import { useView } from "../lib/view";
-
-const IN_TAURI = "__TAURI_INTERNALS__" in window;
+import { WindowControls } from "./WindowControls";
 
 export function Topbar() {
   const { canGoBack, goBack, top } = useView();
@@ -63,71 +62,9 @@ export function Topbar() {
         </button>
 
         <div className="flex items-center justify-end gap-1.5">
-          {IN_TAURI && <WindowControls />}
+          <WindowControls />
         </div>
       </div>
     </header>
-  );
-}
-
-function WindowControls() {
-  const [maximized, setMaximized] = useState(false);
-
-  useEffect(() => {
-    let disposed = false;
-    let unlisten: (() => void) | undefined;
-    void (async () => {
-      const { getCurrentWindow } = await import("@tauri-apps/api/window");
-      const win = getCurrentWindow();
-      const refresh = async () => {
-        const value = await win.isMaximized().catch(() => false);
-        if (!disposed) setMaximized(value);
-      };
-      void refresh();
-      unlisten = await win.onResized(() => void refresh());
-    })();
-    return () => {
-      disposed = true;
-      unlisten?.();
-    };
-  }, []);
-
-  const act = async (action: "minimize" | "toggleMaximize" | "close") => {
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
-    await getCurrentWindow()[action]();
-  };
-
-  const buttonClass =
-    "flex h-10 w-11 items-center justify-center rounded-xl bg-elevated/70 text-ink-muted transition-colors duration-150 hover:bg-elevated hover:text-ink";
-
-  return (
-    <div className="ml-1 flex items-center gap-1.5">
-      <button className={buttonClass} onClick={() => void act("minimize")} aria-label="Minimize">
-        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.4">
-          <path d="M3 6.5h7" />
-        </svg>
-      </button>
-      <button
-        className={buttonClass}
-        onClick={() => void act("toggleMaximize")}
-        aria-label={maximized ? "Restore" : "Maximize"}
-      >
-        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.4">
-          {maximized ? (
-            <>
-              <rect x="3" y="4.5" width="5.5" height="5.5" rx="1.2" />
-              <path d="M5 3h4.5A1.5 1.5 0 0 1 11 4.5V9" />
-            </>
-          ) : (
-            <rect x="3" y="3" width="7" height="7" rx="1.2" />
-          )}
-        </svg>
-      </button>
-      <button className={buttonClass} onClick={() => void act("close")} aria-label="Close">
-        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.4">
-          <path d="M3.5 3.5l6 6M9.5 3.5l-6 6" />
-        </svg>
-      </button>
-    </div>
   );
 }

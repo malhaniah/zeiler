@@ -14,6 +14,7 @@
  */
 import { ChevronLeft } from "lucide-react";
 import { useCallback, useState } from "react";
+import { WindowControls } from "../../chrome/WindowControls";
 import { CopyField } from "../../components/ui";
 import type { PlayerLaunch } from "../../lib/playback-handoff";
 import { playerCommand } from "../../lib/player-ipc";
@@ -201,6 +202,8 @@ export function ExternalRemote({
             )}
           </div>
         )}
+        {/* this screen covers the shell's title bar */}
+        <WindowControls />
       </header>
 
       {/* bottom: the same control bar as the embedded player, always shown */}
