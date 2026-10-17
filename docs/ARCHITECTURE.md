@@ -664,8 +664,9 @@ exchange items with Stremio's own apps without loss or surprises.
   Continue Watching (the Home row and the progress bars on posters); hooks read one
   view (the Library page's Continue Watching / Library / History tabs, the library
   tab in stremio-core's sorts) or one title with its episodes' watched marks (Detail,
-  the stream picker). A Continue Watching card resumes: the stream picker for the
-  video it stopped at. When the picked video has a resume point, the picker asks
+  the stream picker). A Continue Watching card's poster resumes (the stream picker for
+  the video it stopped at) and its name opens the title's page (`LibraryCard`'s
+  `onDetails`). When the picked video has a resume point, the picker asks
   "Resume from 12:34" or start over before it opens the Player (`startAtSec`).
 
 ## Player backends

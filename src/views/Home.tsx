@@ -286,8 +286,9 @@ function IconButton({
 }
 
 /**
- * The titles the user is partway through, most recent first: a card resumes (the
- * stream picker for the episode or movie it stopped at); its ✕ takes it out of the row.
+ * The titles the user is partway through, most recent first: a card's poster resumes
+ * (the stream picker for the episode or movie it stopped at), its name opens the title's
+ * page, and its ✕ takes it out of the row.
  */
 function ContinueWatchingRow() {
   const { continueWatching } = useLibrary();
@@ -313,6 +314,7 @@ function ContinueWatchingRow() {
           sub={continueLine(entry)}
           pending={pending === entry.id}
           onOpen={() => open(entry, "resume")}
+          onDetails={() => open(entry, "details")}
           // a failed dismiss leaves the card where it is
           onDismiss={() => void libraryClearProgress(entry.id).catch(() => undefined)}
         />
