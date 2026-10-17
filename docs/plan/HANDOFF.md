@@ -11,12 +11,14 @@ v0.2.0 the same day, and again on 2026-10-17 when M7 to M13 were merged for v0.3
   built-ins, subtitles and audio controls, plus the fixes in #8 to #14 (subtitles kept
   off another file opened in external mpv, libmpv from Zeiler's own mirror, dependency
   licences checked in CI, a release is a draft until all four builds are in it).
-- **Releasing as v0.3.1** (2026-10-18), the fixes from the owner's first runs of v0.3.0:
-  #31 (skip: TheIntroDB API v4, and credits starting at 0 are none), #33 (Windows:
+- **Released as v0.3.1** (2026-10-18), the fixes from the owner's first runs of v0.3.0:
+  #31 (skip: TheIntroDB API v4, and credits starting at 0 are none), #32 and #39 (skip:
+  TheIntroDB is sent the video's length to pick the release version), #33 (Windows:
   fullscreen from a maximized window fills the screen), #34 (the new pirate-ship logo,
-  white on dark; `assets/brand/`), #36 (the window controls on every screen that covers
-  the title bar, the player's included) and #37 (Continue Watching: the poster continues,
-  the name opens the title).
+  white on dark; `assets/brand/`), #35 (the main window's size, position and maximized
+  state kept across launches), #36 (the window controls on every screen that covers the
+  title bar, the player's included) and #37 (Continue Watching: the poster continues, the
+  name opens the title).
 - **Released as v0.3.0** (2026-10-17): ten PRs merged on 2026-10-17, in this order: #16
   (the zeiler.io download website, `website/`), #17 (M8 catalogs), #20 (M9 A, Live TV
   from addons), #18 (M7 skip and next episode), #22 (M6 leftovers), #19 (M10
