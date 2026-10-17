@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronLeft, ExternalLink, Play, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { WindowControls } from "../chrome/WindowControls";
 import { AddonLogo } from "../components/cards";
 import { fallbackGradient } from "../components/Poster";
 import { Badge, EmptyState, Modal } from "../components/ui";
@@ -174,6 +175,10 @@ export function PlayPickerView({ meta, video }: { meta: MetaItem; video: Video |
       >
         <ChevronLeft size={20} strokeWidth={2.2} />
       </button>
+      {/* the picker hides the shell's title bar */}
+      <div className="fixed right-5 top-5 z-[200]">
+        <WindowControls />
+      </div>
 
       <div className="relative mx-auto flex min-h-full w-full max-w-5xl flex-col gap-12 px-12 pb-32 pt-32">
         {/* header */}

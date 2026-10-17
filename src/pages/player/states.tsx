@@ -6,6 +6,7 @@
  */
 import { ChevronLeft, Info } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
+import { WindowControls } from "../../chrome/WindowControls";
 import { EmptyState } from "../../components/ui";
 import type { PlayerLaunch } from "../../lib/playback-handoff";
 import { TorrentStats } from "./TorrentStats";
@@ -124,6 +125,10 @@ function Screen({
     <main className="fixed inset-0 flex items-center justify-center overflow-hidden bg-canvas px-6">
       <Backdrop src={backdrop ?? null} />
       <div data-tauri-drag-region className="absolute inset-x-0 top-0 h-20" />
+      {/* the screen covers the shell's title bar */}
+      <div className="fixed right-5 top-5 z-10">
+        <WindowControls />
+      </div>
       <button
         onClick={onBack}
         className="fixed left-5 top-5 z-10 flex h-11 w-11 items-center justify-center rounded-full border border-edge bg-canvas/80 text-ink backdrop-blur-md transition-colors hover:bg-elevated"
