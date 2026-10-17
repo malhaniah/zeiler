@@ -177,6 +177,8 @@ export function LibraryView() {
               sub={cardLine(tab, entry)}
               pending={pending === entry.id}
               onOpen={() => open(entry, tab === "continueWatching" ? "resume" : "details")}
+              // in Continue Watching the poster resumes and the name opens the title
+              onDetails={tab === "continueWatching" ? () => open(entry, "details") : undefined}
               onDismiss={tab === "continueWatching" ? () => dismiss(entry) : undefined}
             />
           ))}
