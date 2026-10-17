@@ -104,61 +104,23 @@ URLs match.
 Nothing is deployed yet and the domain isn't configured. Three good options, all free
 for a site like this:
 
-### GitHub Pages
+### GitHub Pages (what the site uses)
 
-1. Add a workflow such as `.github/workflows/website-pages.yml`:
+`.github/workflows/website.yml` builds the site and, on every push to `main` that touches
+`website/` (or a manual run on `main`), publishes `website/dist` with
+`actions/deploy-pages`. A new release needs no deploy: the pages swap in the live
+release in the browser.
 
-   ```yaml
-   name: website-pages
-   on:
-     push:
-       branches: [main]
-       paths: ["website/**"]
-     release:
-       types: [published]   # refreshes the no-JavaScript fallback after each release
-     workflow_dispatch:
-   permissions:
-     contents: read
-     pages: write
-     id-token: write
-   concurrency:
-     group: pages
-     cancel-in-progress: true
-   jobs:
-     deploy:
-       runs-on: ubuntu-latest
-       environment:
-         name: github-pages
-         url: ${{ steps.deployment.outputs.page_url }}
-       defaults:
-         run:
-           working-directory: website
-       steps:
-         - uses: actions/checkout@v7
-         - uses: actions/setup-node@v7
-           with:
-             node-version: 24
-             cache: npm
-             cache-dependency-path: website/package-lock.json
-         - run: npm ci
-         - run: npm run build
-           env:
-             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-         - uses: actions/upload-pages-artifact@v4
-           with:
-             path: website/dist
-         - id: deployment
-           uses: actions/deploy-pages@v4
-   ```
-
-2. Repository Settings → Pages → Source: **GitHub Actions**.
-3. Settings → Pages → Custom domain: `zeiler.io`, then **Enforce HTTPS**. At the DNS
-   provider, point the apex at GitHub Pages (`A` records `185.199.108.153`,
-   `185.199.109.153`, `185.199.110.153`, `185.199.111.153`; `AAAA` records
-   `2606:50c0:8000::153` to `2606:50c0:8003::153`) and `www` with a `CNAME` to
-   `malhaniah.github.io`. Verifying the domain under the account's Pages settings
-   protects it from takeover.
-4. Until the domain is set, the site lives at `malhaniah.github.io/zeiler/`: build with
+1. Repository Settings → Pages → Source: **GitHub Actions**. (Not "Deploy from a
+   branch": that serves the repository root, where `index.html` is the desktop app's
+   dev page, a blank white page in a browser.)
+2. Settings → Pages → Custom domain: the site's domain (now `zeiler.malghamdi.dev`), then
+   **Enforce HTTPS**. With the Actions source, the domain lives in this setting; the
+   repository's root `CNAME` file isn't used.
+3. The canonical link and the social preview tags use `SITE_URL` (default
+   `https://zeiler.malghamdi.dev`, in `vite.config.ts`). When the domain changes, set
+   `SITE_URL` in the build step's `env` or change the default.
+4. Without a custom domain the site lives at `malhaniah.github.io/zeiler/`: build with
    `SITE_BASE: /zeiler/` in the build step's `env` for that.
 
 ### Cloudflare Pages
