@@ -1,17 +1,21 @@
 name: website
 
 # The download website in website/ only: the app's CI (ci.yml) doesn't run for it,
-# and this doesn't run for the app.
+# and this doesn't run for the app. On main it also publishes the site to GitHub Pages
+# (Settings → Pages → Source: GitHub Actions; the custom domain is set there too). A new
+# release needs no deploy: the pages swap in the live release in the browser.
 on:
   push:
     branches: [main]
     paths: ["website/**", ".github/workflows/website.yml"]
   pull_request:
     paths: ["website/**", ".github/workflows/website.yml"]
+  workflow_dispatch:
 
 concurrency:
   group: website-${{ github.ref }}
-  cancel-in-progress: true
+  # a newer push never cancels a run that may be publishing
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -41,3 +45,27 @@ jobs:
           name: website
           path: website/dist
           retention-days: 7
+      # the Pages copy, for the deploy job below (not on pull requests)
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: website/dist
+
+  deploy:
+    # main only (a manual run can be started on any branch)
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    # one deploy at a time, and a newer one never cancels one that is publishing
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

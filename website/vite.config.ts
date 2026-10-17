@@ -20,6 +20,10 @@ async function buildRelease(): Promise<Release> {
   return normalizeRelease(JSON.parse(readFileSync(resolve(root, "release-snapshot.json"), "utf8")));
 }
 
+// Where the site is served, for the canonical link and the social preview tags
+// (absolute URLs). SITE_URL overrides it, e.g. once the site moves to zeiler.io.
+const SITE_URL = (process.env.SITE_URL ?? "https://zeiler.malghamdi.dev").replace(/\/+$/, "");
+
 // The release as JSON inside the page, in the API's shape; "<" escaped so it can't close the <script>
 const dataScript = (r: Release) =>
   `<script type="application/json" id="release-data">${JSON.stringify(toApiShape(r)).replace(/</g, "\\u003c")}</script>`;
@@ -51,6 +55,7 @@ function release(): Plugin {
         // relative, so the site works at a domain's root and under a path alike
         const downloadsHref = ctx.path.startsWith("/download/") ? "./" : "download/";
         const out = html
+          .replaceAll("__SITE_URL__", SITE_URL)
           .replace("<!--release:cta-->", renderCta(r, null, { downloadsHref }))
           .replace("<!--release:line-->", releaseLine(r))
           .replace("<!--release:downloads-->", renderDownloads(r))
