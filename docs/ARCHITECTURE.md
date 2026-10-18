@@ -372,6 +372,26 @@ run `sub-add` (see "Validation policy").
   (on), counts down to the end, where the next episode plays by itself; closing the card
   stops that for this episode. Keys: n / p (and the media keys) for the next and the
   previous episode.
+- **Another stream** (`useStreamSwitch.ts`, `StreamsMenu.tsx`; the Streams chip next to
+  Audio and Subtitles, on both screens, not for live TV nor another file opened in
+  mpv's window). When the menu first opens for a video, `streams_get` is asked exactly
+  as the picker asks (type, id, episode); Rust keeps the addons' answer (see the
+  `streams_get` entry under "Tauri IPC surface"), so after the picker it comes back
+  without asking the addons again; when an addon failed, the next opening asks again.
+  It lists what the Player can play (an http(s) URL or a torrent) in the picker's
+  sections and with its badges (compact), best first, the stream playing marked.
+  Picking one loads it the way the next episode loads (`switchStream`: `player_load` in
+  the same player, `engine_resolve` first for a torrent, the old torrent removed unless
+  it is the same one, a new run for the subtitle hook, so the title's remembered
+  subtitle and audio choices, delay and speed apply again and the subtitle addons are
+  asked for the new file), with the same video's progress context, starting at the
+  current position — from the beginning within the first 5 s or once playback ended
+  (Harbor's stream-switcher rule). While a torrent resolves the file playing is paused,
+  so the new one starts where it stopped. A failure before the new file is asked for,
+  or a stream Rust refuses (`invalidInput`: a scheme or a header it does not take),
+  leaves the old one playing, with a notice. What is not remembered per title goes
+  with the old file, as for the next episode: a subtitle file the user added, the
+  second subtitle, an encoding override, a track without a language.
 
 ## Tauri IPC surface
 
@@ -430,7 +450,12 @@ Commands (all async, `Result<T, IpcError>`; payloads camelCase). This list match
   stream groups `{ transportUrl, addonName, streams, hidden, error? }` (parallel
   fan-out, 25 s per addon; each stream with its `tags`, `episodeMatch` and `rank`, those
   for another episode left out and counted in `hidden`; see "Tags, episode matching and
-  ranking") · `subtitles_get { type, id, videoHash?, videoSize?, filename? }` →
+  ranking"; `maxAgeSecs?`: no older answer than that). The addons' answer is kept in
+  memory per addons in effect, type and id (`streams_cache.rs`): 1 h, 1 min when an
+  addon failed, not at all when every addon failed or for live TV (`tv`, `channel`:
+  links with short-lived tokens), 64 answers at most. The picker takes one up to
+  2 min old (opening it again asks again after that); the player's Streams menu and the
+  next episode's lookup take any, so they find the picker's · `subtitles_get { type, id, videoHash?, videoSize?, filename? }` →
   per-addon subtitle groups `{ transportUrl, addonName, subtitles, error? }` (parallel
   fan-out, 10 s per addon; the stream's file hints go along as the extras, each left out
   when malformed; see "Subtitles and audio")

@@ -264,10 +264,14 @@ export function useTracks({
       loadWaiters.current.add(check);
     });
   }, []);
-  // Another video (the next episode) has another list: forget the previous one, and an
-  // answer for it that is still on its way. (Before the effect below that asks again.)
+  // Another video (the next episode), or another file of it (the Streams menu), has
+  // another list: forget the previous one, and an answer for it that is still on its
+  // way. (Before the effect below that asks again.) The file counts even when no stream
+  // hint names it, as its hash is read from the file itself. Kept in memory only.
   const listedFor = useRef(0);
-  const queryKey = query ? JSON.stringify(query) : null;
+  const source = launch.source;
+  const file = source.kind === "url" ? source.url : `${source.infoHash}/${source.fileIdx}`;
+  const queryKey = query ? JSON.stringify({ ...query, file }) : null;
   queryKeyRef.current = queryKey;
   useEffect(() => {
     listedFor.current += 1;

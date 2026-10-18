@@ -12,6 +12,7 @@ use zeiler_streams::{RankedAddonStreams, VideoTarget, rank_streams};
 use crate::catalog_cache::CatalogCache;
 use crate::error::IpcError;
 use crate::state::AppState;
+use crate::streams_cache::{StreamsCache, StreamsKey};
 
 const META_TIMEOUT: Duration = Duration::from_secs(15);
 const STREAMS_TIMEOUT: Duration = Duration::from_secs(25);
@@ -148,19 +149,52 @@ pub async fn meta_get(
 /// another episode than the one asked for are left out (counted in `hidden`; see
 /// `zeiler_streams::match_episode`). `season`, `episode` and `absolute` are the video's
 /// numbers as its meta lists them (the absolute one counted across the regular
-/// seasons); without them the id's numbers count (`tt…:1:3`, `kitsu:…:3`).
+/// seasons); without them the id's numbers count (`tt…:1:3`, `kitsu:…:3`). The addons'
+/// answer is reused for a while ([`StreamsCache`]), so the player's Streams menu and the
+/// next episode's lookup find the picker's; `max_age_secs` asks for a younger one (the
+/// picker's 120 s). Live TV (`tv`, `channel`) is always asked anew: its links can carry
+/// short-lived tokens.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn streams_get(
     state: State<'_, AppState>,
+    cache: State<'_, StreamsCache>,
     r#type: String,
     id: String,
     season: Option<u32>,
     episode: Option<u32>,
     absolute: Option<u32>,
+    max_age_secs: Option<u64>,
 ) -> Result<Vec<RankedAddonStreams>, IpcError> {
     let addons = state.effective_addons().await;
     let target = VideoTarget::for_request(&r#type, &id, season, episode, absolute);
-    let groups = aggregate_streams(&state.client, &addons, &r#type, &id, STREAMS_TIMEOUT).await;
+    let cacheable = !matches!(r#type.as_str(), "tv" | "channel");
+    let key = StreamsKey {
+        addons: addons.iter().map(|d| d.transport_url.clone()).collect(),
+        r#type,
+        id,
+    };
+    let max_age = max_age_secs.map(Duration::from_secs);
+    let cached = cacheable
+        .then(|| cache.get(&key, max_age, Instant::now()))
+        .flatten();
+    let groups = match cached {
+        Some(groups) => groups,
+        None => {
+            let groups = aggregate_streams(
+                &state.client,
+                &addons,
+                &key.r#type,
+                &key.id,
+                STREAMS_TIMEOUT,
+            )
+            .await;
+            if cacheable {
+                cache.put(key, groups.clone(), Instant::now());
+            }
+            groups
+        }
+    };
     Ok(rank_streams(groups, target.as_ref()))
 }
 

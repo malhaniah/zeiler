@@ -12,6 +12,7 @@ mod profiles;
 mod secrets;
 mod settings_groups;
 mod state;
+mod streams_cache;
 mod subtitles;
 mod updater;
 mod window_state;
@@ -103,6 +104,7 @@ pub fn run() {
                 tauri::async_runtime::block_on(state.settings.read()).stremio_deep_link;
             app.manage(state);
             app.manage(catalog_cache::CatalogCache::default());
+            app.manage(streams_cache::StreamsCache::default());
             app.manage(library);
             app.manage(prefs);
             app.manage(commands::mpv::PlayerState::default());

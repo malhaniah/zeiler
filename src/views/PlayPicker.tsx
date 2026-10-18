@@ -5,7 +5,7 @@ import { WindowControls } from "../chrome/WindowControls";
 import { AddonLogo } from "../components/cards";
 import { fallbackGradient } from "../components/Poster";
 import { Badge, EmptyState, Modal } from "../components/ui";
-import { errorMessage, streamsGet } from "../lib/ipc";
+import { errorMessage, PICKER_MAX_AGE_SECS, streamsGet } from "../lib/ipc";
 import { formatClock, useLibraryItem } from "../lib/library";
 import type { ResumePoint, VideoRef } from "../lib/library-ipc";
 import {
@@ -61,7 +61,7 @@ export function PlayPickerView({ meta, video }: { meta: MetaItem; video: Video |
     let cancelled = false;
     setGroups(null);
     setFailed(new Set());
-    streamsGet(meta.type, videoId, target).then((g) => !cancelled && setGroups(g));
+    streamsGet(meta.type, videoId, target, PICKER_MAX_AGE_SECS).then((g) => !cancelled && setGroups(g));
     return () => {
       cancelled = true;
     };

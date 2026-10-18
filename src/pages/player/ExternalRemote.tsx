@@ -20,6 +20,7 @@ import type { PlayerLaunch } from "../../lib/playback-handoff";
 import { playerCommand } from "../../lib/player-ipc";
 import { ControlsBar } from "./ControlsBar";
 import type { MpvState, Phase } from "./mpv-state";
+import type { StreamSwitch } from "./useStreamSwitch";
 import type { Tracks } from "./useTracks";
 import { type PlaybackClock, useClock } from "./playback-clock";
 import {
@@ -45,6 +46,7 @@ export function ExternalRemote({
   phase,
   mpv,
   tracks,
+  streams,
   clock,
   notice,
   dismissNotice,
@@ -60,6 +62,8 @@ export function ExternalRemote({
   phase: Phase;
   mpv: MpvState;
   tracks: Tracks;
+  /** the video's other streams, for the Streams menu */
+  streams: StreamSwitch | null;
   clock: PlaybackClock;
   notice: string | null;
   dismissNotice: () => void;
@@ -213,6 +217,7 @@ export function ExternalRemote({
           ended={ended}
           mpv={mpv}
           tracks={tracks}
+          streams={streams}
           controls={controls}
           shown
           onPoke={noop}
