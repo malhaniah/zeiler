@@ -36,6 +36,9 @@ env:
     - Fedora/openSUSE: install the `.rpm`, plus mpv (Fedora: from RPM Fusion)
     - Anything else: make the `.AppImage` executable and run it; install mpv from your distro
 
+permissions:
+  contents: read
+
 jobs:
   # The pinned libmpv for the Windows build (libmpv-2.dll + the generated mpv.lib +
   # NOTICE.txt), fetched before anything is built: if it cannot be had, nothing is
