@@ -7,6 +7,10 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 export const chip =
   "flex h-8 items-center gap-1.5 rounded-md bg-canvas/50 px-3 text-sm text-ink-muted hover:bg-elevated hover:text-ink";
 
+/** Marks an open menu panel: the mouse wheel then scrolls it rather than set the volume
+ * (`usePlayerWheel`). */
+export const PLAYER_MENU_ATTR = "data-player-menu";
+
 /** A button with a panel above it; closes on a click elsewhere or Escape (which then
  * does not also leave the player), and on a pick unless the panel keeps itself open. */
 export function PopupMenu({
@@ -60,6 +64,7 @@ export function PopupMenu({
       </button>
       {open && (
         <div
+          data-player-menu="" // PLAYER_MENU_ATTR: the wheel scrolls it, not the volume
           className={`absolute bottom-10 right-0 z-10 max-h-[min(30rem,70vh)] overflow-y-auto rounded-lg border border-edge bg-surface py-1 shadow-xl ${width}`}
           onClick={(e) => e.stopPropagation()}
         >
