@@ -6,6 +6,10 @@ v0.2.0 the same day, and again on 2026-10-17 when M7 to M13 were merged for v0.3
 
 ## Where things stand
 
+- **v0.3.2** (2026-10-18): #43 (stream quality tags, best-first ranking and strict
+  episode matching), #44 (the mouse wheel sets the volume over the player), #45 (switch
+  the stream from inside the player) and #46 (auto-play the best matching stream, a
+  Settings toggle on by default; the picker stays one click away).
 - **Released:** v0.2.1 (2026-10-16): M0 to M6, Zeiler's own player screen, built-in
   playback on Windows, the library with Continue Watching, the Kitsu and OpenSubtitles
   built-ins, subtitles and audio controls, plus the fixes in #8 to #14 (subtitles kept
