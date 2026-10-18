@@ -253,6 +253,7 @@ export interface Settings {
   downloadLimitKibps?: number | null;
   deleteOnStop: boolean;
   theme: string;
+  /** Never wired up; superseded by `autoPlayStream` (nothing reads it). */
   instantPlay: boolean;
   hideAnime: boolean;
   hideLiveTv: boolean;
@@ -276,6 +277,9 @@ export interface Settings {
   bingeWatching: boolean;
   /** Seconds before the end the Up Next card shows, 5–60. */
   upNextSeconds: number;
+  /** Choosing a film or an episode starts its top-ranked matching stream (the picker
+   * shows when nothing matches; "Choose stream" opens it anyway). */
+  autoPlayStream: boolean;
   /** Browse third-party addon directories on the Addons page (opt-in). */
   marketplaceEnabled: boolean;
   marketplaceSources: MarketplaceSources;

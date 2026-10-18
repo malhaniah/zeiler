@@ -45,7 +45,9 @@ export type Frame =
   // the catalog item that was clicked: the detail page falls back to it when no
   // installed addon serves meta for this id
   | { kind: "meta"; type: string; id: string; preview: MetaPreview }
-  | { kind: "picker"; meta: MetaItem; video: Video | null }
+  // `choose`: the user asked for the list ("Choose stream"); otherwise the picker may
+  // start the best stream by itself (`autoPlayStream`, see PlayPicker)
+  | { kind: "picker"; meta: MetaItem; video: Video | null; choose?: boolean }
   // the catalog browser: a type, optionally one addon's catalog and its filters (kept in
   // the frame, so Back restores them); the transport URL never leaves memory
   | BrowseFrame
@@ -103,7 +105,9 @@ interface ViewCtx {
   updateBrowse: (target: Omit<BrowseFrame, "kind">) => void;
   /** Browse `type` filtered to one genre (its first catalog that has the genre). */
   openFilter: (type: string, genre: string) => void;
-  openPicker: (meta: MetaItem, video: Video | null) => void;
+  /** Play `video` (null: a film's): its best stream by itself, or the stream picker.
+   * `choose` always shows the picker. */
+  openPicker: (meta: MetaItem, video: Video | null, options?: { choose?: boolean }) => void;
   openAddonDetail: (key: string) => void;
   goBack: () => void;
 }
@@ -160,7 +164,8 @@ export function ViewProvider({ children }: { children: ReactNode }) {
       updateBrowse,
       openFilter: (type, genre) =>
         push({ kind: "browse", type, extra: [{ name: "genre", value: genre }] }),
-      openPicker: (meta, video) => push({ kind: "picker", meta, video }),
+      openPicker: (meta, video, options) =>
+        push({ kind: "picker", meta, video, ...(options?.choose ? { choose: true } : {}) }),
       openAddonDetail: (key) => push({ kind: "addon-detail", key }),
     };
   }, [stack, push, setView, goBack, updateBrowse]);

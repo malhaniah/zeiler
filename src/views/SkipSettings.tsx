@@ -65,7 +65,7 @@ export function SkipAndNextCards() {
       >
         <ToggleRow
           label="Play the next episode by itself"
-          sub="When an episode ends — unless you closed the Up Next card. It plays from the same addon and source (the stream's bingeGroup); when there is none, its stream picker opens."
+          sub="When an episode ends — unless you closed the Up Next card. It plays from the same addon and source (the stream's bingeGroup); without one, its best stream when Play the best stream right away is on, else its stream picker opens."
           on={settings.bingeWatching}
           onChange={(on) => void save({ bingeWatching: on })}
         />

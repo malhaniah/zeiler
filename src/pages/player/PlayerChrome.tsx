@@ -20,7 +20,7 @@ import type { Backend, MpvState, Phase } from "./mpv-state";
 import type { StreamSwitch } from "./useStreamSwitch";
 import type { Tracks } from "./useTracks";
 import { type PlaybackClock, useClock } from "./playback-clock";
-import { BackButton, CenterCard, ClosedCard, NextButton, Spinner } from "./states";
+import { BackButton, ChooseStreamButton, CenterCard, ClosedCard, NextButton, Spinner } from "./states";
 import { TorrentStats } from "./TorrentStats";
 import { usePlayerControls, usePlayerKeys, usePlayerWheel } from "./usePlayerControls";
 
@@ -41,6 +41,7 @@ export function PlayerChrome({
   onLeave,
   onPlayAgain,
   onNext,
+  onChooseStream,
 }: {
   phase: Phase;
   backend: Backend;
@@ -62,6 +63,8 @@ export function PlayerChrome({
   onPlayAgain: () => void;
   /** play the next episode (null: there is none) */
   onNext: (() => void) | null;
+  /** leave for the video's stream picker after a failure (null: no picker for it) */
+  onChooseStream: (() => void) | null;
 }) {
   const [visible, setVisible] = useState(true);
   const hideTimer = useRef<number | null>(null);
@@ -173,7 +176,10 @@ export function PlayerChrome({
               <CopyField value={phase.streamUrl} />
             </div>
           )}
-          <BackButton onClick={onLeave} />
+          <div className="flex gap-2">
+            {onChooseStream && <ChooseStreamButton onClick={onChooseStream} />}
+            <BackButton onClick={onLeave} />
+          </div>
         </CenterCard>
       )}
       {phase.kind === "playing" && <BufferingOverlay clock={clock} />}

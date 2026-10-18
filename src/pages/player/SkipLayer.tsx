@@ -107,7 +107,7 @@ function UpNextCard({ next, upNextSeconds }: { next: NextEpisodeControls; upNext
               : opensPicker
                 ? "Choose a stream for it"
                 : stream.state === "checking"
-                  ? "Looking for the same source…"
+                  ? "Finding its stream…"
                   : "Ready"}
           </div>
         </div>

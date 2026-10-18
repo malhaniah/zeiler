@@ -371,12 +371,12 @@ function PlayerSection() {
         </div>
       </SectionCard>
 
-      <SectionCard title="Play button behavior">
+      <SectionCard title="Starting playback">
         <ToggleRow
-          label="Instant play"
-          sub="Pressing Play starts the first playable stream instead of always showing the picker. (The picker is always one click away.)"
-          on={settings.instantPlay}
-          onChange={(on) => void save({ instantPlay: on })}
+          label="Play the best stream right away"
+          sub="Choosing a film or an episode starts its top-ranked stream. When none is sure to be the episode, the stream picker shows. Choose stream (in Play's menu, or next to an episode) opens it anyway."
+          on={settings.autoPlayStream}
+          onChange={(on) => void save({ autoPlayStream: on })}
         />
       </SectionCard>
 

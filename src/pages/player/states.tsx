@@ -61,6 +61,18 @@ export function BackButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+/** "Choose another stream" on the Could not play card: the video's stream picker. */
+export function ChooseStreamButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-canvas hover:opacity-90"
+      onClick={onClick}
+    >
+      Choose another stream
+    </button>
+  );
+}
+
 /** "Next episode" on the Playback finished card. */
 export function NextButton({ onClick }: { onClick: () => void }) {
   return (
