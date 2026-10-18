@@ -5,6 +5,9 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 # One release run at a time: a draft does not hold its tag, so two runs for the same
 # version would each create a draft.
 concurrency:
