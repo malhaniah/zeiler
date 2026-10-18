@@ -387,9 +387,42 @@ export function openPlayer(launch: PlayerLaunch): string {
 
 const failureListeners = new Set<(id: string) => void>();
 
+/** Streams that failed to play in this run of the app (`launchStreamKey`), the newest
+ * 200: auto-play passes them over and the picker marks them, also when the picker that
+ * started one has left the view stack. In memory only (the keys hold stream URLs). */
+const failedStreams = new Set<string>();
+const MAX_FAILED = 200;
+
+/** Which stream of which video a launch plays (null: a launch without a meta). */
+export function launchStreamKey(launch: PlayerLaunch): string | null {
+  const videoId = launch.video?.id ?? launch.meta?.behaviorHints.defaultVideoId ?? launch.meta?.id;
+  if (!videoId) return null;
+  const { source } = launch;
+  const stream =
+    source.kind === "url" ? source.url : `${source.infoHash.toLowerCase()}/${source.fileIdx ?? ""}`;
+  return [videoId, launch.transportUrl ?? "embedded", stream].join("\n");
+}
+
+/** `launch`'s stream failed to play before (in this run of the app). */
+export function launchFailedBefore(launch: PlayerLaunch): boolean {
+  const key = launchStreamKey(launch);
+  return key !== null && failedStreams.has(key);
+}
+
 /** The Player calls this when the launch named by `id` failed to play, so the screen that
- * opened it (still mounted under the player) can mark the stream it came from. */
-export function reportLaunchFailed(id: string): void {
+ * opened it (still mounted under the player) can mark the stream it came from, and so
+ * the stream is remembered as failed (`launchFailedBefore`). */
+export function reportLaunchFailed(id: string, launch: PlayerLaunch): void {
+  const key = launchStreamKey(launch);
+  if (key !== null) {
+    failedStreams.delete(key);
+    failedStreams.add(key);
+    while (failedStreams.size > MAX_FAILED) {
+      const oldest = failedStreams.values().next().value;
+      if (oldest === undefined) break;
+      failedStreams.delete(oldest);
+    }
+  }
   for (const listener of [...failureListeners]) listener(id);
 }
 
@@ -401,17 +434,20 @@ export function subscribeLaunchFailures(listener: (id: string) => void): () => v
   };
 }
 
-const pickerListeners = new Set<(meta: MetaItem, video: Video) => void>();
+const pickerListeners = new Set<(meta: MetaItem, video: Video | null) => void>();
 
-/** The Player asks the app shell underneath it to open the stream picker for another
- * video of the title (the next episode, when no stream continues the current one). Call
- * it as the player is left: the shell shows the picker once it is back on screen. */
-export function requestPicker(meta: MetaItem, video: Video): void {
+/** The Player asks the app shell underneath it to open the stream picker for a video of
+ * the title (null: a film's): the next episode, when it has no stream to play, or the
+ * video playing, after its stream failed. Call it as the player is left: the shell
+ * shows the picker once it is back on screen. */
+export function requestPicker(meta: MetaItem, video: Video | null): void {
   for (const listener of [...pickerListeners]) listener(meta, video);
 }
 
 /** Subscribes to picker requests (the app shell); returns the unsubscribe function. */
-export function subscribePickerRequests(listener: (meta: MetaItem, video: Video) => void): () => void {
+export function subscribePickerRequests(
+  listener: (meta: MetaItem, video: Video | null) => void,
+): () => void {
   pickerListeners.add(listener);
   return () => {
     pickerListeners.delete(listener);

@@ -39,7 +39,13 @@
  * then on `session.launch` is that episode's launch, and everything below follows it.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { leavePlayer, type PlayerLaunch, reportLaunchFailed } from "../../lib/playback-handoff";
+import {
+  leavePlayer,
+  metaItemForLaunch,
+  type PlayerLaunch,
+  reportLaunchFailed,
+  requestPicker,
+} from "../../lib/playback-handoff";
 import { playerSetGeometry, playerStop, settingsGet } from "../../lib/player-ipc";
 import type { SkipSettings } from "../../lib/types";
 import { ExternalRemote } from "./ExternalRemote";
@@ -82,6 +88,7 @@ interface PlayerSettings {
   skip: SkipSettings;
   bingeWatching: boolean;
   upNextSeconds: number;
+  autoPlayStream: boolean;
 }
 
 function PlayerSession({ launch: launched, launchId }: { launch: PlayerLaunch; launchId: string | null }) {
@@ -91,7 +98,16 @@ function PlayerSession({ launch: launched, launchId }: { launch: PlayerLaunch; l
   useEffect(() => {
     let live = true;
     settingsGet()
-      .then((s) => live && setSettings({ skip: s.skip, bingeWatching: s.bingeWatching, upNextSeconds: s.upNextSeconds }))
+      .then(
+        (s) =>
+          live &&
+          setSettings({
+            skip: s.skip,
+            bingeWatching: s.bingeWatching,
+            upNextSeconds: s.upNextSeconds,
+            autoPlayStream: s.autoPlayStream,
+          }),
+      )
       .catch(() => undefined);
     return () => {
       live = false;
@@ -138,6 +154,7 @@ function PlayerSession({ launch: launched, launchId }: { launch: PlayerLaunch; l
     foreign: tracks.foreign,
     bingeWatching: settings?.bingeWatching ?? false,
     upNextSeconds,
+    autoPlayStream: settings?.autoPlayStream ?? false,
     loadNext: session.loadNext,
     subscribeEvents: session.subscribeEvents,
   });
@@ -198,7 +215,7 @@ function PlayerSession({ launch: launched, launchId }: { launch: PlayerLaunch; l
   useEffect(() => {
     if (phase.kind !== "error" || reported.current || !launchId || launch !== launched) return;
     reported.current = true;
-    reportLaunchFailed(launchId);
+    reportLaunchFailed(launchId, launched);
   }, [phase.kind, launchId, launch, launched]);
 
   // the stats overlay (key i), while there is something playing to describe
@@ -248,6 +265,18 @@ function PlayerSession({ launch: launched, launchId }: { launch: PlayerLaunch; l
     </>
   );
   const onNext = next.next ? next.playNext : null;
+  // after a failure: leave for this video's stream picker (the list, never auto-play)
+  const launchMeta = launch.meta;
+  const onChooseStream =
+    launchMeta && !launch.live
+      ? () => {
+          const video = launch.video
+            ? (launchMeta.videos.find((v) => v.id === launch.video?.id) ?? { ...launch.video, streams: [] })
+            : null;
+          leavePlayer();
+          requestPicker(metaItemForLaunch(launchMeta), video);
+        }
+      : null;
 
   if (backend === "external") {
     return (
@@ -268,6 +297,7 @@ function PlayerSession({ launch: launched, launchId }: { launch: PlayerLaunch; l
           onStop={session.stopAndLeave}
           onPlayAgain={session.playAgain}
           onNext={onNext}
+          onChooseStream={onChooseStream}
         />
         {layer}
       </>
@@ -294,6 +324,7 @@ function PlayerSession({ launch: launched, launchId }: { launch: PlayerLaunch; l
         onLeave={leave}
         onPlayAgain={session.playAgain}
         onNext={onNext}
+        onChooseStream={onChooseStream}
       />
       {layer}
     </>

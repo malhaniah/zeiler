@@ -153,7 +153,32 @@ backend setting says.
   dev builds still accept the legacy `url=`/`infoHash=` params of the
   `VITE_ZEILER_AUTOPLAY` hook. `openPlayer` returns the launch id, and the Player reports
   a launch that ends in an error (`reportLaunchFailed`), so the picker underneath marks
-  that stream "Unavailable, try another." as it did when it played streams itself.
+  that stream "Unavailable, try another." as it did when it played streams itself (and
+  a picker opened later marks it too, see "Auto-play").
+- **Auto-play** (`autoPlayStream`, Settings → Player, on by default). Choosing a film
+  or an episode (Play on a title's page, an episode, Continue Watching) opens the
+  picker's frame as before, but while the addons answer it shows "Finding the best
+  stream" with "Choose a stream instead", then starts the best matching stream
+  (`bestRow` in `src/lib/streams.ts`, the stream marked "Best": the best ranked addon
+  stream the Player can play that is the episode itself or in a pack that names its
+  file — any for a film —, else the first playable stream that came with the meta;
+  never one that failed before in this run of the app), once the library has answered
+  too, after the resume prompt when the video has a resume point. The frame then leaves
+  the view stack, so Back from the Player returns to the screen that asked to play.
+  When nothing matches the list shows, saying why; so it does when the prompt is
+  closed, or when the search or another screen came over the picker meanwhile. Never
+  for live TV. Play's menu on a title's page ("Choose stream"), each episode's "Choose
+  stream" and the manual episode picker open the list (`choose` on the frame); so do
+  the Player's picker requests: the next episode without a stream to play, and "Choose
+  another stream" on the Could not play card. A next or previous episode (Up Next, n,
+  p) without a stream that continues the current one plays its own best matching
+  stream (the same rule) instead of leaving for its picker, so the addons are asked for
+  it near the end even when the stream playing has no `bingeGroup`. Streams that fail
+  are remembered for the run (`reportLaunchFailed`, in memory: the keys hold stream
+  URLs), so the picker marks them even after the auto-play picker that started one has
+  gone. `instantPlay`, which nothing ever read, is superseded: a new key, because every
+  settings file written so far stores `instantPlay: false`, so changing its default
+  would not have switched it on.
 - **App stays mounted** (`src/main.tsx`). The Player renders next to the app shell, which
   stays mounted but hidden (`display:none` + `inert`), so the view stack, the picker's
   stream list and its scroll offsets survive playback and Back (`history.back`) returns
@@ -366,8 +391,10 @@ run `sub-add` (see "Validation policy").
   torrent is removed once the new file is asked for, unless it is the same torrent. The
   page stays: the session counts the load as a new run (the subtitle hook takes its file
   as the title's own and asks the addons again with the new stream's hints) and from
-  then on plays the new launch. Without a continuing stream the player is left and the
-  next episode's stream picker opens (it replaces the picker the player came from).
+  then on plays the new launch. Without a continuing stream, with auto-play the next
+  episode's best matching stream loads the same way (see "Auto-play"); without either
+  the player is left and the next episode's stream picker opens (it replaces the
+  picker the player came from).
   The Up Next card shows in the last `upNextSeconds` (15) and, with `bingeWatching`
   (on), counts down to the end, where the next episode plays by itself; closing the card
   stops that for this episode. Keys: n / p (and the media keys) for the next and the
@@ -636,14 +663,15 @@ player's property rules; every style field `null` by default), `audio { langs,
 animeLangs, normalize, volumeMax }` (`animeLangs` defaults to `["ja"]`, `normalize`
 off, `volumeMax` 130, 100–200) and `skip { showButton, autoSkipIntro, autoSkipRecap,
 autoSkipCredits, onlineLookup }` (auto-skip off, the rest on), plus the top-level
-`bingeWatching` (on) and `upNextSeconds` (15, 5–60).
+`bingeWatching` (on), `upNextSeconds` (15, 5–60) and `autoPlayStream` (on; see
+"Playback entry point").
 
 Reserved key map — names are fixed now; each key is added only when its feature ships:
 
 | Scope | Keys (existing **bold**) |
 | --- | --- |
 | Per device | **`mpvPath`**, **`engineListenPort`**, **`engineUpnp`**, **`uploadLimitKibps`**, **`downloadLimitKibps`**, **`deleteOnStop`**, **`autoUpdate`**, **`playerBackend`** (`auto`/`embedded`/`external`), **`marketplaceEnabled`**, **`marketplaceSources{}`** (`stremioAddonsNet`, `stremioCatalog`), **`stremioDeepLink`** |
-| Per profile | **`theme`**, **`instantPlay`**, **`hideAnime`**, **`hideLiveTv`**, **`showAdult`** (the single adult flag and age gate, also used by the marketplace; matched by `zeiler_addon::is_adult_text`), **`hideP2pAddons`**, **`homeRows`** (`{order, hidden, renamed: [{key, name}]}`, keyed without transport URLs), **`subtitles{}`** (languages, auto-load, style), **`audio{}`** (languages, normalize, volume max), **`skip{}`** (skip button, auto-skip, online lookups), **`bingeWatching`**, **`upNextSeconds`** |
+| Per profile | **`theme`**, **`instantPlay`** (superseded by `autoPlayStream`; nothing reads it), **`hideAnime`**, **`hideLiveTv`**, **`showAdult`** (the single adult flag and age gate, also used by the marketplace; matched by `zeiler_addon::is_adult_text`), **`hideP2pAddons`**, **`homeRows`** (`{order, hidden, renamed: [{key, name}]}`, keyed without transport URLs), **`subtitles{}`** (languages, auto-load, style), **`audio{}`** (languages, normalize, volume max), **`skip{}`** (skip button, auto-skip, online lookups), **`bingeWatching`**, **`upNextSeconds`**, **`autoPlayStream`** |
 | Built-in toggles (scope is an owner decision; device until then) | **`builtinCinemeta`**, **`builtinKitsu`**, **`builtinOpensubtitles`** |
 
 A settings file from before `builtinKitsu` and `builtinOpensubtitles` existed takes them

@@ -31,7 +31,7 @@ const FILE_VERSION: u32 = 1;
 pub const PER_PROFILE_FILES: [&str; 3] = ["addons.json", "library.json", "player-prefs.json"];
 /// The settings keys that belong to a profile (docs/ARCHITECTURE.md, "Settings
 /// schema"); every other key is the device's. Keys not in `Settings` yet are skipped.
-pub const PROFILE_KEYS: [&str; 12] = [
+pub const PROFILE_KEYS: [&str; 13] = [
     "theme",
     "instantPlay",
     "hideAnime",
@@ -44,6 +44,7 @@ pub const PROFILE_KEYS: [&str; 12] = [
     "skip",
     "bingeWatching",
     "upNextSeconds",
+    "autoPlayStream",
 ];
 pub const MAX_PROFILES: usize = 8;
 const MAX_NAME_CHARS: usize = 32;

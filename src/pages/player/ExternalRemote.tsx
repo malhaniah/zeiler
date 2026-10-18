@@ -25,6 +25,7 @@ import type { Tracks } from "./useTracks";
 import { type PlaybackClock, useClock } from "./playback-clock";
 import {
   BackButton,
+  ChooseStreamButton,
   Backdrop,
   CenterCard,
   ClosedCard,
@@ -57,6 +58,7 @@ export function ExternalRemote({
   onStop,
   onPlayAgain,
   onNext,
+  onChooseStream,
 }: {
   launch: PlayerLaunch;
   phase: Phase;
@@ -75,6 +77,8 @@ export function ExternalRemote({
   onPlayAgain: () => void;
   /** play the next episode (null: there is none) */
   onNext: (() => void) | null;
+  /** leave for the video's stream picker after a failure (null: no picker for it) */
+  onChooseStream: (() => void) | null;
 }) {
   const [stopping, setStopping] = useState(false);
   const ended = phase.kind === "ended";
@@ -155,7 +159,10 @@ export function ExternalRemote({
               <CopyField value={phase.streamUrl} />
             </div>
           )}
-          <BackButton onClick={onBack} />
+          <div className="flex gap-2">
+            {onChooseStream && <ChooseStreamButton onClick={onChooseStream} />}
+            <BackButton onClick={onBack} />
+          </div>
         </CenterCard>
       )}
 

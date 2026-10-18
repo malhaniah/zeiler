@@ -6,8 +6,10 @@
  * - **With what.** Near the end (the last 90 s, the credits, or when asked) the addons
  *   are asked for the next episode's streams (`streams_get`), and a stream from the same
  *   addon with the same `bingeGroup` continues this one: it loads in the same player
- *   (`loadNext` → `player_load`). Without one, playing it leaves the player and opens
- *   the next episode's stream picker, as Stremio does.
+ *   (`loadNext` → `player_load`). Without one, with auto-play (`autoPlayStream`) the
+ *   next episode's best matching stream loads instead (`bestRow`, as the picker
+ *   would start it); otherwise, or when it has none, playing it leaves the player and
+ *   opens the next episode's stream picker, as Stremio does.
  * - **By itself** (`bingeWatching`): when the episode ends — unless the user closed the
  *   Up Next card for this episode (which also cancels a next episode still waiting for
  *   its streams). The card shows in the last `upNextSeconds` and counts down the time
@@ -27,7 +29,7 @@ import {
   requestPicker,
 } from "../../lib/playback-handoff";
 import { streamsGet } from "../../lib/player-ipc";
-import { episodeTarget } from "../../lib/streams";
+import { bestRow, episodeTarget, streamRows } from "../../lib/streams";
 import type { Video } from "../../lib/types";
 import type { Phase } from "./mpv-state";
 import { type PlaybackClock, useClock } from "./playback-clock";
@@ -65,6 +67,7 @@ export function useNextEpisode({
   foreign,
   bingeWatching,
   upNextSeconds,
+  autoPlayStream,
   loadNext,
   subscribeEvents,
 }: {
@@ -74,6 +77,8 @@ export function useNextEpisode({
   foreign: boolean;
   bingeWatching: boolean;
   upNextSeconds: number;
+  /** without a stream that continues this one, play the next episode's best */
+  autoPlayStream: boolean;
   loadNext: (next: PlayerLaunch) => void;
   subscribeEvents: (listener: PlayerEventListener) => () => void;
 }): NextEpisodeControls {
@@ -101,24 +106,35 @@ export function useNextEpisode({
     asking.current = null;
   }, [launch]);
 
-  /** The candidate stream for `target` from the addons' answers (or the meta's own). */
+  /** The candidate stream for `target` from the addons' answers (or the meta's own):
+   * one that continues this one, else (auto-play) its best. */
   const findStream = useCallback(
     async (target: Video): Promise<BingeCandidate | null> => {
       const bingeGroup = launch.stream?.behaviorHints.bingeGroup ?? null;
-      if (!meta || !bingeGroup) return null;
+      if (!meta || (!bingeGroup && !autoPlayStream)) return null;
       // (Rust leaves out the streams for any other episode)
-      const groups = launch.transportUrl
-        ? await streamsGet(meta.type, target.id, episodeTarget(meta, target))
-        : [];
-      return bingeCandidate({
+      const groups =
+        launch.transportUrl || autoPlayStream
+          ? await streamsGet(meta.type, target.id, episodeTarget(meta, target))
+          : [];
+      const binge = bingeCandidate({
         bingeGroup,
         transportUrl: launch.transportUrl,
         addonName: launch.addonName,
         groups,
         video: target,
       });
+      if (binge || !autoPlayStream) return binge;
+      const best = bestRow(streamRows(groups, target));
+      if (!best) return null;
+      const embedded = best.transportUrl === "embedded";
+      return {
+        stream: best.stream,
+        transportUrl: embedded ? null : best.transportUrl,
+        addonName: best.addonName,
+      };
     },
-    [launch, meta],
+    [launch, meta, autoPlayStream],
   );
 
   const prefetch = useCallback(() => {

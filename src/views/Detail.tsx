@@ -1,4 +1,13 @@
-import { CalendarClock, Check, CheckCheck, ChevronDown, Info, Play, Plus } from "lucide-react";
+import {
+  CalendarClock,
+  Check,
+  CheckCheck,
+  ChevronDown,
+  Info,
+  ListVideo,
+  Play,
+  Plus,
+} from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { NO_HOVER_SHOW } from "../components/LibraryCard";
 import { Poster, PosterProgress, fallbackGradient } from "../components/Poster";
@@ -13,6 +22,7 @@ import {
   metaSummary,
   videoRefs,
 } from "../lib/library-ipc";
+import { useSettings } from "../lib/store";
 import { useView } from "../lib/view";
 import type { MetaItem, MetaLookup, MetaPreview, Video } from "../lib/types";
 
@@ -56,6 +66,8 @@ export function DetailView({
   preview: MetaPreview;
 }) {
   const { openPicker } = useView();
+  // with auto-play, Play starts the best stream: "Choose stream" opens the picker
+  const autoPlay = useSettings().settings?.autoPlayStream ?? false;
   const [meta, setMeta] = useState<MetaItem | null>(null);
   const [fallbackNote, setFallbackNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -169,23 +181,22 @@ export function DetailView({
           libraryMarkWatched({ meta: summary(), videos: refs, videoIds: [], watched: !titleWatched }),
         );
 
-  const smartPlay = () => {
-    if (continueVideo) {
-      openPicker(meta, continueVideo);
-    } else if (isSeries) {
-      const firstEpisode =
+  /** The video Play plays: the one to continue, a series' first episode, a film's. */
+  const playTarget = (): Video | null => {
+    if (continueVideo) return continueVideo;
+    if (isSeries) {
+      return (
         defaultVideo ??
         [...meta.videos]
           .filter((v) => (v.season ?? 0) > 0)
           .sort((a, b) => (a.season ?? 0) - (b.season ?? 0) || (a.episode ?? 0) - (b.episode ?? 0))[0] ??
-        meta.videos[0];
-      openPicker(meta, firstEpisode);
-    } else if (needsManualEpisode) {
-      openPicker(meta, episodeVideo(meta, 1, 1));
-    } else {
-      openPicker(meta, null);
+        meta.videos[0]
+      );
     }
+    if (needsManualEpisode) return episodeVideo(meta, 1, 1);
+    return null;
   };
+  const smartPlay = (choose = false) => openPicker(meta, playTarget(), { choose });
 
   const backdrop = meta.background ?? meta.poster;
 
@@ -236,16 +247,14 @@ export function DetailView({
               </div>
 
               <div className="mt-9 flex flex-wrap gap-3">
-                <button
-                  onClick={smartPlay}
-                  className="flex h-12 items-center gap-2.5 rounded-full bg-ink px-7 text-[15px] font-semibold text-canvas shadow-[0_8px_24px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.65),inset_0_-1px_0_rgba(0,0,0,0.18)] transition-transform duration-200 hover:scale-[1.03] active:scale-[0.98]"
-                >
-                  <Play size={18} fill="currentColor" />
-                  {playLabel(
+                <PlayButton
+                  label={playLabel(
                     resumes ? "Resume" : continueVideo ? "Continue" : "Play",
                     continueVideo ?? defaultVideo,
                   )}
-                </button>
+                  onPlay={() => smartPlay()}
+                  onChoose={autoPlay && !live ? () => smartPlay(true) : null}
+                />
                 <HeroToggle
                   on={!!entry?.inLibrary}
                   disabled={busy}
@@ -307,16 +316,108 @@ export function DetailView({
             libraryLoaded={libraryLoaded}
             busy={busy}
             onPick={(video) => openPicker(meta, video)}
+            onChoose={autoPlay ? (video) => openPicker(meta, video, { choose: true }) : null}
             onMarkVideos={markVideos}
             onMarkSeason={markSeason}
           />
         )}
         {needsManualEpisode && (
-          <ManualEpisodePicker onPick={(s, e) => openPicker(meta, episodeVideo(meta, s, e))} />
+          // "Find streams": the list, also with auto-play
+          <ManualEpisodePicker
+            onPick={(s, e) => openPicker(meta, episodeVideo(meta, s, e), { choose: true })}
+          />
         )}
         <InfoBlock meta={meta} />
       </div>
     </main>
+  );
+}
+
+/**
+ * The hero's Play button. With auto-play it starts the best stream, and its menu
+ * (`onChoose`) opens the stream picker instead: "Choose stream".
+ */
+function PlayButton({
+  label,
+  onPlay,
+  onChoose,
+}: {
+  label: string;
+  onPlay: () => void;
+  onChoose: (() => void) | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const chevron = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    // Escape closes the menu only, not the page (the view stack listens on the window
+    // too, after this capture-phase listener)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      setOpen(false);
+      chevron.current?.focus();
+    };
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey, true);
+    };
+  }, [open]);
+  const pill =
+    "flex h-12 items-center bg-ink text-[15px] font-semibold text-canvas shadow-[0_8px_24px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.65),inset_0_-1px_0_rgba(0,0,0,0.18)]";
+  return (
+    <div ref={ref} className="relative flex transition-transform duration-200 hover:scale-[1.03]">
+      <button
+        onClick={onPlay}
+        className={`${pill} gap-2.5 px-7 active:scale-[0.98] ${onChoose ? "rounded-l-full pr-5" : "rounded-full"}`}
+      >
+        <Play size={18} fill="currentColor" />
+        {label}
+      </button>
+      {onChoose && (
+        <button
+          ref={chevron}
+          onClick={() => setOpen((o) => !o)}
+          aria-label="More ways to play"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          title="More ways to play"
+          className={`${pill} rounded-r-full border-l border-canvas/20 pl-3 pr-4`}
+        >
+          <ChevronDown size={17} className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+        </button>
+      )}
+      {open && onChoose && (
+        <div
+          role="menu"
+          className="animate-fade-in absolute left-0 top-full z-20 mt-2 w-64 rounded-2xl border border-edge-soft bg-canvas py-1.5 shadow-2xl"
+        >
+          <button
+            role="menuitem"
+            autoFocus
+            onClick={() => {
+              setOpen(false);
+              onChoose();
+            }}
+            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-[13.5px] font-medium text-ink-muted hover:bg-elevated/60 hover:text-ink"
+          >
+            <ListVideo size={16} />
+            <span className="flex flex-col">
+              Choose stream
+              <span className="text-[11.5px] font-normal text-ink-subtle">
+                Pick from every addon's streams
+              </span>
+            </span>
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -462,6 +563,7 @@ function EpisodesSection({
   libraryLoaded,
   busy,
   onPick,
+  onChoose,
   onMarkVideos,
   onMarkSeason,
 }: {
@@ -476,6 +578,8 @@ function EpisodesSection({
   /** a library change is running */
   busy: boolean;
   onPick: (video: Video) => void;
+  /** open an episode's stream picker (auto-play is on: a pick plays at once) */
+  onChoose: ((video: Video) => void) | null;
   onMarkVideos: (videoIds: string[], watched: boolean) => void;
   onMarkSeason: (season: number, watched: boolean) => void;
 }) {
@@ -572,6 +676,7 @@ function EpisodesSection({
             }
             busy={busy}
             onClick={() => onPick(video)}
+            onChoose={onChoose ? () => onChoose(video) : null}
             onMark={(watched) => onMarkVideos([video.id], watched)}
           />
         ))}
@@ -652,6 +757,7 @@ function EpisodeRow({
   progress,
   busy,
   onClick,
+  onChoose,
   onMark,
 }: {
   video: Video;
@@ -660,6 +766,8 @@ function EpisodeRow({
   progress: number | null;
   busy: boolean;
   onClick: () => void;
+  /** open its stream picker (null: a click already does) */
+  onChoose: (() => void) | null;
   onMark: (watched: boolean) => void;
 }) {
   const parsed = video.released ? new Date(video.released) : null;
@@ -714,6 +822,17 @@ function EpisodeRow({
           )}
         </div>
       </button>
+      {/* Choose stream, on hover (or focus): a click on the row plays its best */}
+      {onChoose && (
+        <button
+          onClick={onChoose}
+          aria-label={`Choose stream: ${video.title ?? video.id}`}
+          title="Choose stream"
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-edge-soft text-ink-muted opacity-0 transition-opacity hover:border-edge hover:text-ink focus-visible:opacity-100 group-hover/episode:opacity-100 ${NO_HOVER_SHOW}`}
+        >
+          <ListVideo size={17} />
+        </button>
+      )}
       {/* The watched mark: always shown once set, on hover (or focus) before. An
           episode not out yet can't be marked (its release date would become the
           title's "last watched"), only unmarked. */}

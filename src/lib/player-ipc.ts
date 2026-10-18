@@ -131,6 +131,7 @@ export const settingsGet = () =>
       | "skip"
       | "bingeWatching"
       | "upNextSeconds"
+      | "autoPlayStream"
     >
   >("settings_get");
 /** Merges these keys into the settings (a group field by field), as `settings_patch`. */

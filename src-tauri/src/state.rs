@@ -46,6 +46,8 @@ pub struct Settings {
     /// UI theme preset id (see src/lib/theme.ts).
     pub theme: String,
     /// Play the first direct stream automatically instead of always showing the picker.
+    /// Never wired up, and stored as `false` in every settings file written since:
+    /// superseded by `auto_play_stream`, nothing reads it (a field is never removed).
     pub instant_play: bool,
     /// Hide the Anime room from navigation.
     pub hide_anime: bool,
@@ -85,6 +87,11 @@ pub struct Settings {
     pub binge_watching: bool,
     /// How many seconds before the end the Up Next card shows (5–60).
     pub up_next_seconds: u32,
+    /// Choosing a film or an episode starts its top-ranked matching stream at once
+    /// instead of showing the stream picker (which shows when nothing matches, and
+    /// stays one click away: "Choose stream"). A next episode without a stream that
+    /// continues the current one plays its top-ranked stream too.
+    pub auto_play_stream: bool,
     /// Browse third-party addon directories on the Addons page. Off until the user opts
     /// in: nothing is fetched from a directory before that.
     pub marketplace_enabled: bool,
@@ -123,6 +130,7 @@ impl Default for Settings {
             skip: SkipSettings::default(),
             binge_watching: true,
             up_next_seconds: 15,
+            auto_play_stream: true,
             marketplace_enabled: false,
             marketplace_sources: MarketplaceSources::default(),
             hide_p2p_addons: false,
@@ -782,6 +790,16 @@ mod tests {
             serde_json::from_value(json!({"upNextSeconds": 999, "bingeWatching": false})).unwrap();
         assert_eq!(stored.up_next_seconds, 15, "out of range → its default");
         assert!(!stored.binge_watching);
+    }
+
+    #[test]
+    fn auto_play_is_on_also_for_a_file_that_stored_instant_play_off() {
+        // every settings file written before it holds instantPlay: false
+        let stored: Settings = serde_json::from_value(json!({"instantPlay": false})).unwrap();
+        assert!(stored.auto_play_stream);
+        let off = stored.patched(json!({"autoPlayStream": false})).unwrap();
+        assert!(!off.auto_play_stream);
+        assert!(stored.patched(json!({"autoPlayStream": "no"})).is_err());
     }
 
     #[test]

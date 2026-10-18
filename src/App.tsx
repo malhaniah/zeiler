@@ -99,9 +99,10 @@ function Shell() {
   );
 }
 
-/** The Player asks for another video's stream picker (the next episode, when no stream
- * continues the current one): it replaces the picker the player was opened from, if
- * that is the same title's, else it opens on top. */
+/** The Player asks for a video's stream picker (the next episode, when it has no
+ * stream to play; another stream after one failed): it replaces the picker the player
+ * was opened from, if that is the same title's, else it opens on top. Always the list
+ * (`choose`): the Player already tried what it could. */
 function usePickerRequests() {
   const view = useView();
   const latest = useRef(view);
@@ -111,10 +112,13 @@ function usePickerRequests() {
       subscribePickerRequests((meta, video) => {
         const { top, goBack, openPicker } = latest.current;
         if (top.kind === "picker" && top.meta.id === meta.id) {
+          // already this video's list (it marks the stream that failed)
+          if ((top.video?.id ?? null) === (video?.id ?? null)) return;
           goBack();
-          openPicker(top.meta, top.meta.videos.find((v) => v.id === video.id) ?? video);
+          const own = video ? (top.meta.videos.find((v) => v.id === video.id) ?? video) : null;
+          openPicker(top.meta, own, { choose: true });
         } else {
-          openPicker(meta, video);
+          openPicker(meta, video, { choose: true });
         }
       }),
     [],
@@ -175,7 +179,15 @@ function OverlayFrame({ frame }: { frame: Frame }) {
     case "meta":
       return <DetailView type={frame.type} id={frame.id} preview={frame.preview} />;
     case "picker":
-      return <PlayPickerView meta={frame.meta} video={frame.video} />;
+      return (
+        // a new picker for another video or a request for the list: fresh state
+        <PlayPickerView
+          key={`${frame.video?.id ?? frame.meta.id}:${frame.choose ? "choose" : "play"}`}
+          meta={frame.meta}
+          video={frame.video}
+          choose={frame.choose}
+        />
+      );
     case "settings":
       return (
         <div className="absolute inset-0 z-40">
