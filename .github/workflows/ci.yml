@@ -14,7 +14,7 @@ env:
 
 jobs:
   # Whether a pull request touches anything but documentation (or the website, which
-  # has its own workflow). If not, every job below finishes at once: the required
+  # has its own workflow, or the Claude skills in .claude/skills, which nothing builds). If not, every job below finishes at once: the required
   # checks still report, so a docs-only PR can merge without building the app. A push
   # to main always runs everything, and any doubt (an API error, no file list) does too.
   changes:
@@ -37,7 +37,7 @@ jobs:
             code=false
             while IFS= read -r f; do
               case "$f" in
-                docs/*|website/*|.github/ISSUE_TEMPLATE/*|.github/PULL_REQUEST_TEMPLATE.md) ;;
+                docs/*|website/*|.claude/skills/*|.github/ISSUE_TEMPLATE/*|.github/PULL_REQUEST_TEMPLATE.md) ;;
                 README.md|CONTRIBUTING.md|SECURITY.md|assets/brand/README.md) ;;
                 *) code=true ;;
               esac

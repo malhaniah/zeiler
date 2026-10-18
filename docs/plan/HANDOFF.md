@@ -6,7 +6,7 @@ v0.2.0 the same day, and again on 2026-10-17 when M7 to M13 were merged for v0.3
 
 ## Where things stand
 
-- **v0.3.2** (2026-10-18): #43 (stream quality tags, best-first ranking and strict
+- **Released as v0.3.2** (2026-10-18): #43 (stream quality tags, best-first ranking and strict
   episode matching), #44 (the mouse wheel sets the volume over the player), #45 (switch
   the stream from inside the player) and #46 (auto-play the best matching stream, a
   Settings toggle on by default; the picker stays one click away).
@@ -15,11 +15,6 @@ v0.2.0 the same day, and again on 2026-10-17 when M7 to M13 were merged for v0.3
   built-ins, subtitles and audio controls, plus the fixes in #8 to #14 (subtitles kept
   off another file opened in external mpv, libmpv from Zeiler's own mirror, dependency
   licences checked in CI, a release is a draft until all four builds are in it).
-- **In review** (after v0.3.1): four features the owner asked for after running v0.3.0
-  and v0.3.1 on Windows, one PR each against main: stream quality tags, ranking and
-  strict episode matching (the base of the next two), the mouse wheel for the volume
-  (on its own), switching the stream from inside the player (on the tags PR), and
-  auto-playing the best stream (on the switching PR). See their rows below.
 - **Released as v0.3.1** (2026-10-18), the fixes from the owner's first runs of v0.3.0:
   #31 (skip: TheIntroDB API v4, and credits starting at 0 are none), #32 and #39 (skip:
   TheIntroDB is sent the video's length to pick the release version), #33 (Windows:
