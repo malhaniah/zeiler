@@ -12,6 +12,9 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
 
+permissions:
+  contents: read
+
 jobs:
   # Whether a pull request touches anything but documentation (or the website, which
   # has its own workflow). If not, every job below finishes at once: the required
