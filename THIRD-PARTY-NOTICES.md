@@ -101,6 +101,9 @@ Adapted files:
   IPTV size limits, cache times and error messages
 - `src/views/LivePlaylists.tsx` — the Live room's playlist layout (sources, groups,
   channel grid with now/next)
+- `crates/zeiler-streams/src/{tags,rank}.rs` — the stream labels' patterns (resolution,
+  source, HDR, codec, audio, size, seeders, debrid flags) and the scoring weights
+  (`src/lib/streams/parser/*`, `src/lib/streams/scoring/*`)
 
 ```text
 MIT License

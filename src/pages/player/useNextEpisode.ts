@@ -27,6 +27,7 @@ import {
   requestPicker,
 } from "../../lib/playback-handoff";
 import { streamsGet } from "../../lib/player-ipc";
+import { episodeTarget } from "../../lib/streams";
 import type { Video } from "../../lib/types";
 import type { Phase } from "./mpv-state";
 import { type PlaybackClock, useClock } from "./playback-clock";
@@ -105,7 +106,10 @@ export function useNextEpisode({
     async (target: Video): Promise<BingeCandidate | null> => {
       const bingeGroup = launch.stream?.behaviorHints.bingeGroup ?? null;
       if (!meta || !bingeGroup) return null;
-      const groups = launch.transportUrl ? await streamsGet(meta.type, target.id) : [];
+      // (Rust leaves out the streams for any other episode)
+      const groups = launch.transportUrl
+        ? await streamsGet(meta.type, target.id, episodeTarget(meta, target))
+        : [];
       return bingeCandidate({
         bingeGroup,
         transportUrl: launch.transportUrl,

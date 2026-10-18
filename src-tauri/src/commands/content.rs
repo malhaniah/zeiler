@@ -3,10 +3,11 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 use zeiler_addon::{
-    AddonStreams, AddonSubtitles, Descriptor, ExtraValue, MetaLookup, MetaPreview, ResourcePath,
+    AddonSubtitles, Descriptor, ExtraValue, MetaLookup, MetaPreview, ResourcePath,
     aggregate_streams, aggregate_subtitles, build_resource_url, find_meta, is_adult_manifest,
     is_adult_meta, is_adult_text,
 };
+use zeiler_streams::{RankedAddonStreams, VideoTarget, rank_streams};
 
 use crate::catalog_cache::CatalogCache;
 use crate::error::IpcError;
@@ -141,15 +142,26 @@ pub async fn meta_get(
     Ok(crate::builtin::without_builtin_streams(lookup, &addons))
 }
 
-/// Fan out a stream request to every supporting addon; per-addon results, in install order.
+/// Fan out a stream request to every supporting addon; per-addon results, in install
+/// order. Every stream comes back with its tags (resolution, source, HDR, audio, size,
+/// seeders…) and its rank across all the addons (0 is the best), and the streams for
+/// another episode than the one asked for are left out (counted in `hidden`; see
+/// `zeiler_streams::match_episode`). `season`, `episode` and `absolute` are the video's
+/// numbers as its meta lists them (the absolute one counted across the regular
+/// seasons); without them the id's numbers count (`tt…:1:3`, `kitsu:…:3`).
 #[tauri::command]
 pub async fn streams_get(
     state: State<'_, AppState>,
     r#type: String,
     id: String,
-) -> Result<Vec<AddonStreams>, IpcError> {
+    season: Option<u32>,
+    episode: Option<u32>,
+    absolute: Option<u32>,
+) -> Result<Vec<RankedAddonStreams>, IpcError> {
     let addons = state.effective_addons().await;
-    Ok(aggregate_streams(&state.client, &addons, &r#type, &id, STREAMS_TIMEOUT).await)
+    let target = VideoTarget::for_request(&r#type, &id, season, episode, absolute);
+    let groups = aggregate_streams(&state.client, &addons, &r#type, &id, STREAMS_TIMEOUT).await;
+    Ok(rank_streams(groups, target.as_ref()))
 }
 
 /// Fan out a subtitles request to every addon that serves subtitles for this type and

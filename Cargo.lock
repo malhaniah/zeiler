@@ -7373,6 +7373,7 @@ dependencies = [
  "zeiler-iptv",
  "zeiler-player",
  "zeiler-skip",
+ "zeiler-streams",
  "zeiler-sync",
  "zeroize",
 ]
@@ -7468,6 +7469,17 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+]
+
+[[package]]
+name = "zeiler-streams"
+version = "0.3.1"
+dependencies = [
+ "regex",
+ "serde",
+ "serde_json",
+ "url",
+ "zeiler-addon",
 ]
 
 [[package]]
