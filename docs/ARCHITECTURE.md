@@ -32,6 +32,7 @@ zeiler/
     zeiler-iptv/          # user IPTV: M3U and Xtream channel lists, XMLTV guides
     zeiler-player/        # player session: external mpv over JSON IPC; embedded libmpv (feature)
     zeiler-skip/          # skip segments (intro/recap/credits) from AniSkip and TheIntroDB
+    zeiler-streams/       # stream tags (resolution, source, HDR, audio…), episode matching, ranking
     zeiler-sync/          # opt-in Stremio account: API client + library/addon sync rules
   src-tauri/              # Tauri shell: commands, state, config, capabilities
   docs/  scripts/  .github/workflows/
@@ -72,6 +73,54 @@ For a chosen video id, `streams_get` fans out to all supporting addons in parall
 | `ytId` | Deferred (yt-dlp integration later); shown as external link. |
 | `externalUrl` | Opened in the system browser after scheme allow-listing (http/https only). |
 | rar/zip/nzb/playerFrame | Unsupported — hidden or marked as such. |
+
+### Tags, episode matching and ranking
+
+`streams_get` hands every addon's answer to `zeiler-streams` (`rank_streams`) before it
+reaches the UI, so the picker, the next episode's binge lookup and anything else that
+asks get the same view:
+
+- **Tags** (`StreamTags`), read from `behaviorHints.filename`, then the description,
+  then the name: resolution (`2160p`/`4k`/`uhd` … `360p`), source (REMUX, BluRay, WEB-DL,
+  WEBRip, HDTV, HDRip, DVD, and the cinema recordings CAM, telesync, telecine,
+  screener), HDR (Dolby Vision, HDR10+, HDR10, HDR, HLG), codec, audio (Atmos, TrueHD,
+  DTS:X, DTS-HD MA, DD+, …), channels, bit depth, size (`videoSize`, else the first
+  size in the labels), seeders (`👤 34`, `Seeders: 34`), and whether a debrid service has
+  the file (`[RD+]`, `⚡` / `[RD download]`, `⏳`). Every pattern is a whole word, and the
+  bare scene tokens `CAM`, `TS`, `TC`, `WEB` and `SD` count only in upper case (`.ts`
+  files, `VIDEO_TS`, "Charlotte's Web"). A `quality` (4k, 1080p, 720p, sd, unknown, low)
+  names the picker's section; a cinema recording is `low` at any resolution.
+- **Episode matching** (`match_episode`), when the request names an episode: the UI
+  sends the video's `season`, `episode` and `absolute` number (counted across the
+  regular seasons, `episodeTarget` in `src/lib/streams.ts`), else the id's numbers count
+  (`tt…:1:3`, `tmdb:…:1:3`, `kitsu:…:3`). Each line of a label makes one claim: an
+  episode or a run of them (`S01E03`, `1x03`, `Season 1 Episode 3`, `S01E01-E03`,
+  `S01E01E02`, an anime's `- 03`, `S2 - 03` or `Overlord IV - 03`), whole seasons (`S01`,
+  `Season 2`, `S01-S03`, `2nd Season`), the complete series, or nothing. A run continues
+  only right after the episode (a spaced `- 10` is an episode's title, as Sonarr names
+  files; a number before `GB` a size), and a dot between digits stays (`12.4 GB`). The
+  file decides first (the filename, or a line that ends in a video extension, as
+  Torrentio and MediaFusion send a pack's file; a file name without a season takes its
+  folder's), then the release's most specific claim. A single episode must be the one
+  asked for, of the same season; several episodes, a season or the series count only
+  when the addon names the file (`fileIdx`, `fileMustInclude` or the filename, by which
+  the engine picks it), as a pack. A stream that names no episode stays. An absolute
+  number is the episode's absolute number, or a first season's episode number; for an
+  anime id (Kitsu, MyAnimeList, AniList, AniDB) only episode numbers compare, so a
+  fansub's count that runs on across Kitsu's entries is left out. What is left out is
+  counted per addon (`hidden`), and the picker says so. Each label is read up to
+  4 KiB.
+- **Ranking**: a score and one `rank` across all the addons, 0 the best; equal scores
+  keep the addons' order and each addon's own. By weight: playable at all, cinema
+  recordings far down, starts at once (debrid cached ±25, a torrent's seeders −30 to
+  +10), resolution (2160p 40, 1080p 30, 720p 20), source, then HDR, audio, codec and an
+  exact episode over a pack. So a cached 1080p comes before a 4K torrent, and a
+  well-seeded 1080p torrent before a starved 4K one. The picker lists the meta's own
+  streams first, then a section per quality in the order of its best stream, each best
+  first, with the tags as badges and "Best" on the best ranked one that plays and is
+  the episode (`bestRow`; a stream that names no episode is never "Best"). The next
+  episode's binge stream is the best ranked of the same addon's same-`bingeGroup`
+  streams.
 
 Engine policy: per-infohash cache folder under the app cache dir, `overwrite: true`,
 delete-on-stop by default (bounded disk usage), DHT + persistence under the app data dir
@@ -377,8 +426,11 @@ Commands (all async, `Result<T, IpcError>`; payloads camelCase). This list match
   `meta_get { type, id }` → `{ meta, asked, errors }` (first successful Meta across
   supporting addons; an anime id — `kitsu:`, `mal:`, `anilist:`, `anidb:` — that finds
   none under its type is retried as series, movie and anime, never re-asking an addon that
-  timed out) · `streams_get { type, id }` → per-addon stream groups (parallel
-  fan-out) · `subtitles_get { type, id, videoHash?, videoSize?, filename? }` →
+  timed out) · `streams_get { type, id, season?, episode?, absolute? }` → per-addon
+  stream groups `{ transportUrl, addonName, streams, hidden, error? }` (parallel
+  fan-out, 25 s per addon; each stream with its `tags`, `episodeMatch` and `rank`, those
+  for another episode left out and counted in `hidden`; see "Tags, episode matching and
+  ranking") · `subtitles_get { type, id, videoHash?, videoSize?, filename? }` →
   per-addon subtitle groups `{ transportUrl, addonName, subtitles, error? }` (parallel
   fan-out, 10 s per addon; the stream's file hints go along as the extras, each left out
   when malformed; see "Subtitles and audio")

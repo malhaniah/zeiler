@@ -148,6 +148,66 @@ export interface Stream {
   // PlayerFrame / External
   playerFrameUrl?: string;
   externalUrl?: string;
+  // From `streams_get` only (Rust `zeiler_streams::RankedStream`); a stream that came
+  // with the meta (`video.streams`) has none of these.
+  /** what its labels say (resolution, source, HDR, audio…) */
+  tags?: StreamTags;
+  /** how it relates to the episode asked for (null: no episode was asked for) */
+  episodeMatch?: "exact" | "pack" | "unknown" | null;
+  /** its place across every addon's answer, 0 = best */
+  rank?: number;
+}
+
+/** The episode `streams_get` is asked for: the video's numbers as its meta lists them,
+ * `absolute` counted across the regular seasons (`episodeTarget` in lib/streams.ts). */
+export interface EpisodeTarget {
+  season: number | null;
+  episode: number | null;
+  absolute: number | null;
+}
+
+// Mirrors zeiler_streams::StreamTags (crates/zeiler-streams/src/tags.rs).
+export type StreamQuality = "4k" | "1080p" | "720p" | "sd" | "unknown" | "low";
+export interface StreamTags {
+  /** the picker's and the in-player menu's section */
+  quality: StreamQuality;
+  resolution: "2160p" | "1440p" | "1080p" | "720p" | "576p" | "480p" | "360p" | null;
+  source:
+    | "cam"
+    | "telesync"
+    | "telecine"
+    | "screener"
+    | "remux"
+    | "bluray"
+    | "web-dl"
+    | "webrip"
+    | "hdtv"
+    | "hdrip"
+    | "dvd"
+    | null;
+  hdr: ("dv" | "hdr10+" | "hdr10" | "hdr" | "hlg")[];
+  codec: "hevc" | "av1" | "vp9" | "avc" | "xvid" | null;
+  audio: (
+    | "atmos"
+    | "truehd"
+    | "dts-x"
+    | "dts-hd-ma"
+    | "dts-hd"
+    | "dts"
+    | "dd+"
+    | "dd"
+    | "aac"
+    | "flac"
+    | "opus"
+    | "pcm"
+  )[];
+  channels: "2.0" | "5.1" | "7.1" | null;
+  bitDepth: number | null;
+  /** bytes */
+  size: number | null;
+  seeders: number | null;
+  /** a debrid service has the file (true), or would download it first (false) */
+  cached: boolean | null;
 }
 
 export interface MetaLookup {
@@ -167,7 +227,10 @@ export interface CatalogResponse {
 export interface AddonStreams {
   transportUrl: string;
   addonName: string;
+  /** tagged and ranked, in the addon's own order */
   streams: Stream[];
+  /** streams for another episode, left out by Rust */
+  hidden?: number;
   error?: string | null;
 }
 

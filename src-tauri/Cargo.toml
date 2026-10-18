@@ -25,6 +25,8 @@ zeiler-engine = { workspace = true }
 zeiler-iptv = { workspace = true }
 zeiler-player = { workspace = true }
 zeiler-skip = { workspace = true }
+# stream tags, episode matching and ranking for streams_get
+zeiler-streams = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 # DefaultOnError for nested settings groups (subtitles{}, skip{}, …), added in M0 so

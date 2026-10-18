@@ -96,7 +96,8 @@ export interface BingeCandidate {
 /**
  * The stream for the next video that continues this one: from the same addon
  * (`transportUrl`; null = the streams that came with the meta, in `video.streams`) and
- * with the same non-empty bingeGroup. Only playable streams (a URL or a torrent).
+ * with the same non-empty bingeGroup, the best ranked of them (`streams_get` already
+ * left out the streams for other episodes). Only playable streams (a URL or a torrent).
  */
 export function bingeCandidate({
   bingeGroup,
@@ -119,6 +120,7 @@ export function bingeCandidate({
     return stream ? { stream, transportUrl: null, addonName } : null;
   }
   const group = groups.find((g) => g.transportUrl === transportUrl);
-  const stream = group?.streams.find(matches);
+  const rankOf = (s: Stream) => s.rank ?? Number.MAX_SAFE_INTEGER;
+  const stream = group && [...group.streams].sort((a, b) => rankOf(a) - rankOf(b)).find(matches);
   return stream && group ? { stream, transportUrl, addonName: group.addonName } : null;
 }

@@ -16,6 +16,7 @@ import type {
   SyncReport,
   CatalogResponse,
   Descriptor,
+  EpisodeTarget,
   IpcError,
   MetaLookup,
   ResolvedStream,
@@ -79,8 +80,10 @@ export const catalogLoad = (args: {
 export const metaGet = (type: string, id: string) =>
   invoke<MetaLookup>("meta_get", { type, id });
 
-export const streamsGet = (type: string, id: string) =>
-  invoke<AddonStreams[]>("streams_get", { type, id });
+/** Every addon's streams for a video, tagged and ranked, without those for another
+ * episode than `target` (`episodeTarget` in lib/streams.ts). */
+export const streamsGet = (type: string, id: string, target: EpisodeTarget | null = null) =>
+  invoke<AddonStreams[]>("streams_get", { type, id, ...target });
 
 export const engineResolve = (request: {
   infoHash: string;

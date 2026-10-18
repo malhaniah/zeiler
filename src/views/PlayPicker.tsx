@@ -16,10 +16,18 @@ import {
   subscribeLaunchFailures,
 } from "../lib/playback-handoff";
 import { useSearch } from "../lib/store";
+import {
+  bestRow,
+  episodeTarget,
+  hiddenCount,
+  playable,
+  streamBadges,
+  type StreamRowData as Row,
+  streamRows,
+  streamSections,
+} from "../lib/streams";
 import { useView } from "../lib/view";
-import type { AddonStreams, MetaItem, Stream, Video } from "../lib/types";
-
-type Row = { stream: Stream; addonName: string; transportUrl: string; key: string };
+import type { AddonStreams, MetaItem, Video } from "../lib/types";
 
 /** Only streams that leave the app (YouTube, external links) can fail here; everything
  * else plays on the Player screen, which reports failures back (`subscribeLaunchFailures`).
@@ -47,15 +55,17 @@ export function PlayPickerView({ meta, video }: { meta: MetaItem; video: Video |
   const resume =
     detail?.entry.resume && detail.entry.resume.videoId === videoId ? detail.entry.resume : null;
 
+  // the episode asked for: Rust leaves out the streams for any other (not for live TV)
+  const target = useMemo(() => (live ? null : episodeTarget(meta, video)), [live, meta, video]);
   useEffect(() => {
     let cancelled = false;
     setGroups(null);
     setFailed(new Set());
-    streamsGet(meta.type, videoId).then((g) => !cancelled && setGroups(g));
+    streamsGet(meta.type, videoId, target).then((g) => !cancelled && setGroups(g));
     return () => {
       cancelled = true;
     };
-  }, [meta.type, videoId]);
+  }, [meta.type, videoId, target]);
 
   // Launch id -> row key for streams this picker opened in the Player, so a failure
   // reported there marks the row here too (this view stays mounted under the player).
@@ -68,30 +78,15 @@ export function PlayPickerView({ meta, video }: { meta: MetaItem; video: Video |
     });
   }, [meta.type, videoId]);
 
+  // the meta's own streams, then every addon's best first, in sections by quality
   const rows = useMemo(() => {
-    const result: Row[] = [];
-    if (video && video.streams.length > 0) {
-      video.streams.forEach((stream, i) =>
-        result.push({
-          stream,
-          addonName: "Embedded",
-          transportUrl: "embedded",
-          key: `embedded-${i}`,
-        }),
-      );
-    }
-    for (const group of groups ?? []) {
-      group.streams.forEach((stream, i) =>
-        result.push({
-          stream,
-          addonName: group.addonName,
-          transportUrl: group.transportUrl,
-          key: `${group.transportUrl}-${i}`,
-        }),
-      );
-    }
-    return filter ? result.filter((r) => r.transportUrl === filter) : result;
+    const all = streamRows(groups, video);
+    return filter ? all.filter((r) => r.transportUrl === filter) : all;
   }, [groups, video, filter]);
+  const sections = useMemo(() => streamSections(rows), [rows]);
+  const best = useMemo(() => bestRow(rows)?.key ?? null, [rows]);
+  // (of the addon the list is filtered to)
+  const hidden = hiddenCount(filter ? (groups ?? []).filter((g) => g.transportUrl === filter) : groups);
 
   const settled = groups !== null;
   const addonOptions = useMemo(() => {
@@ -211,11 +206,17 @@ export function PlayPickerView({ meta, video }: { meta: MetaItem; video: Video |
         )}
 
         {/* empty */}
-        {settled && rows.length === 0 && (
+        {settled && rows.length === 0 && hidden === 0 && (
           <EmptyState title={`${groups?.length ?? 0} addons answered — nothing playable`}>
             No installed addon returned a stream for{" "}
             <span className="font-mono text-[12px]">{videoId}</span>. Install a stream addon
             that covers this content.
+          </EmptyState>
+        )}
+        {settled && rows.length === 0 && hidden > 0 && (
+          <EmptyState title="Nothing for this episode">
+            The addons sent {hidden} {hidden === 1 ? "stream" : "streams"} for other episodes, or
+            packs that don't say which file is this one. Zeiler leaves those out.
           </EmptyState>
         )}
 
@@ -229,19 +230,29 @@ export function PlayPickerView({ meta, video }: { meta: MetaItem; video: Video |
           />
         )}
 
-        {/* rows */}
-        {rows.length > 0 && (
-          <div className="flex flex-col gap-2">
-            {rows.map((row) => (
+        {/* rows, in sections by quality, best first */}
+        {sections.map((section) => (
+          <section key={section.quality} className="flex flex-col gap-2">
+            <h2 className="flex items-baseline gap-2 px-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-ink-subtle">
+              {section.label}
+              <span className="font-medium tracking-normal">{section.rows.length}</span>
+            </h2>
+            {section.rows.map((row) => (
               <StreamRow
                 key={row.key}
                 row={row}
+                best={row.key === best}
                 failed={failed.has(row.key)}
                 onPlay={() => void play(row)}
                 onPlayExternal={() => void play(row, "external")}
               />
             ))}
-          </div>
+          </section>
+        ))}
+        {settled && rows.length > 0 && hidden > 0 && (
+          <p className="-mt-6 px-1 text-[12.5px] text-ink-subtle">
+            {hidden} {hidden === 1 ? "stream" : "streams"} for other episodes left out.
+          </p>
         )}
 
         {/* per-addon errors */}
@@ -425,17 +436,20 @@ function FilterOption({
 
 function StreamRow({
   row,
+  best,
   failed,
   onPlay,
   onPlayExternal,
 }: {
-  row: { stream: Stream; addonName: string };
+  row: Row;
+  /** the best stream (`bestRow`) */
+  best: boolean;
   failed: boolean;
   onPlay: () => void;
   onPlayExternal: () => void;
 }) {
   const { stream, addonName } = row;
-  const unsupported = !stream.url && !stream.infoHash && !stream.externalUrl && !stream.ytId;
+  const unsupported = !playable(stream) && !stream.externalUrl && !stream.ytId;
   const kindLabel = stream.url
     ? "direct"
     : stream.infoHash
@@ -445,9 +459,7 @@ function StreamRow({
         : stream.externalUrl
           ? "external"
           : "unsupported";
-  const size = stream.behaviorHints.videoSize
-    ? `${(stream.behaviorHints.videoSize / 1e9).toFixed(2)} GB`
-    : null;
+  const badges = streamBadges(stream, { best });
 
   return (
     <div
@@ -470,9 +482,12 @@ function StreamRow({
             {stream.description}
           </div>
         )}
-        <div className="mt-1.5 flex flex-wrap items-center gap-2">
-          {size && <Badge>{size}</Badge>}
-          {stream.behaviorHints.bingeGroup && <Badge>{stream.behaviorHints.bingeGroup}</Badge>}
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          {badges.map((badge) => (
+            <Badge key={badge.label} tone={badge.tone}>
+              {badge.label}
+            </Badge>
+          ))}
           {failed && (
             <span className="text-[13px] font-medium text-[oklch(0.75_0.12_25)]">
               Unavailable, try another.
@@ -481,7 +496,7 @@ function StreamRow({
         </div>
       </div>
       <div className="flex items-center gap-3">
-        {(stream.url || stream.infoHash) && (
+        {playable(stream) && (
           <button
             onClick={onPlayExternal}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-raised text-ink-muted transition-colors hover:bg-elevated hover:text-ink"

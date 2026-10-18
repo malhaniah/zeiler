@@ -88,6 +88,7 @@ zeiler-engine = { path = "crates/zeiler-engine" }
 zeiler-iptv = { path = "crates/zeiler-iptv" }
 zeiler-player = { path = "crates/zeiler-player" }
 zeiler-skip = { path = "crates/zeiler-skip" }
+zeiler-streams = { path = "crates/zeiler-streams" }
 zeiler-sync = { path = "crates/zeiler-sync" }
 
 [profile.release]

@@ -1,0 +1,18 @@
+[package]
+name = "zeiler-streams"
+description = "What an addon stream's labels say: quality tags, episode matching and ranking"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+zeiler-addon = { workspace = true }
+serde = { workspace = true }
+url = { workspace = true }
+# release-name patterns (already in Cargo.lock, through zeiler-engine)
+regex = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
