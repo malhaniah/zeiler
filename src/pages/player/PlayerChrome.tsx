@@ -17,6 +17,7 @@ import { WindowControls } from "../../chrome/WindowControls";
 import { CopyField } from "../../components/ui";
 import { ControlsBar } from "./ControlsBar";
 import type { Backend, MpvState, Phase } from "./mpv-state";
+import type { StreamSwitch } from "./useStreamSwitch";
 import type { Tracks } from "./useTracks";
 import { type PlaybackClock, useClock } from "./playback-clock";
 import { BackButton, CenterCard, ClosedCard, NextButton, Spinner } from "./states";
@@ -29,6 +30,7 @@ export function PlayerChrome({
   videoBehind,
   mpv,
   tracks,
+  streams,
   clock,
   notice,
   dismissNotice,
@@ -46,6 +48,8 @@ export function PlayerChrome({
   videoBehind: boolean;
   mpv: MpvState;
   tracks: Tracks;
+  /** the video's other streams, for the Streams menu */
+  streams: StreamSwitch | null;
   clock: PlaybackClock;
   notice: string | null;
   dismissNotice: () => void;
@@ -232,6 +236,7 @@ export function PlayerChrome({
           ended={phase.kind === "ended"}
           mpv={mpv}
           tracks={tracks}
+          streams={streams}
           controls={controls}
           shown={controlsShown}
           onPoke={poke}

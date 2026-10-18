@@ -32,6 +32,12 @@
  * then on `launch` is the new one (the subtitle query, labels, skip times, progress).
  * The session then owns the new torrent; the old one is removed once the new file is
  * asked for, unless it is the same torrent (another file of a season pack).
+ *
+ * **Another stream** (`switchStream`, the Streams menu): the same load, for another
+ * stream of the video playing, starting where it was (the launch's `startAtSec`). The
+ * file playing pauses while a torrent resolves, so nothing is missed, and plays on if
+ * that fails. A stream Rust refuses (a scheme or a header it does not take) is refused
+ * before mpv is asked: the file before plays on, with a notice, for either kind of load.
  */
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { errorKind } from "../../lib/ipc";
@@ -53,6 +59,7 @@ import {
   type PlayerEvent,
   playerBackends,
   playerLoad,
+  playerSetProperty,
   playerStart,
   playerStop,
   settingsGet,
@@ -128,6 +135,8 @@ export interface PlaybackSession {
   stopAndLeave: () => Promise<void>;
   /** play another launch of the title in the same player (the next episode) */
   loadNext: (next: PlayerLaunch) => void;
+  /** play another stream of the video in the same player (the Streams menu) */
+  switchStream: (next: PlayerLaunch) => void;
   /**
    * Follow this session's events (only those of its own player, as the page sees them);
    * returns the unsubscribe function. `run` counts the page's player starts: the events
@@ -137,6 +146,25 @@ export interface PlaybackSession {
 }
 
 export type PlayerEventListener = (event: PlayerEvent, run: number) => void;
+
+/** What a load in the same player says while it opens, and when it fails before; and
+ * whether the file playing waits, paused, while a torrent resolves (another stream of
+ * the same video starts where this one is). */
+interface LoadWords {
+  opening: string;
+  failed: string;
+  pauseWhileResolving: boolean;
+}
+const NEXT_EPISODE: LoadWords = {
+  opening: "Opening the next episode…",
+  failed: "Could not open the next episode",
+  pauseWhileResolving: false,
+};
+const OTHER_STREAM: LoadWords = {
+  opening: "Opening the stream…",
+  failed: "Could not open that stream",
+  pauseWhileResolving: true,
+};
 
 export function usePlaybackSession(
   launch: PlayerLaunch,
@@ -156,11 +184,11 @@ export function usePlaybackSession(
   const actions = useRef<{
     playAgain: () => void;
     stopAndLeave: () => Promise<void>;
-    loadNext: (next: PlayerLaunch) => void;
+    load: (next: PlayerLaunch, words: LoadWords) => void;
   }>({
     playAgain: () => undefined,
     stopAndLeave: async () => leavePlayer(),
-    loadNext: () => undefined,
+    load: () => undefined,
   });
 
   useEffect(() => {
@@ -321,15 +349,18 @@ export function usePlaybackSession(
         dropTorrent();
         leavePlayer();
       },
-      loadNext: (next) => {
+      load: (next, words) => {
         if (cancelled || player.state !== "running" || loadingNext) return;
         loadingNext = true;
         endedMeanwhile = false;
         // the file before stays loaded until the next one is asked for: a failure up
         // to then leaves it as it was, with a notice
         const before = phaseRef.current;
-        setPhase({ kind: "loading", label: "Opening the next episode…" });
+        setPhase({ kind: "loading", label: words.opening });
         let switched = false;
+        const pausedHere =
+          words.pauseWhileResolving && next.source.kind === "torrent" && !clock.get().pause;
+        if (pausedHere) void playerSetProperty("pause", true).catch(() => undefined);
         void (async () => {
           let prepared: PlaybackRequest;
           let hash: string | null = null;
@@ -366,6 +397,8 @@ export function usePlaybackSession(
             };
           }
           if (player.state !== "running") return;
+          const previousRequest = request;
+          const previousLaunch = playing;
           request = prepared;
           const previous = owned;
           owned = hash;
@@ -374,7 +407,19 @@ export function usePlaybackSession(
           run += 1;
           switched = true;
           setCurrent(next);
-          await playerLoad(prepared, playbackContext(next));
+          try {
+            await playerLoad(prepared, playbackContext(next));
+          } catch (e) {
+            if (errorKind(e) !== "invalidInput") throw e;
+            // refused before mpv was asked: the file before plays on
+            request = previousRequest;
+            owned = previous;
+            playing = previousLaunch;
+            setCurrent(previousLaunch);
+            switched = false;
+            if (hash && hash !== previous) drop(hash);
+            throw e;
+          }
           if (previous && previous !== hash) drop(previous);
         })()
           .catch((e) => {
@@ -383,7 +428,8 @@ export function usePlaybackSession(
               fail(e);
             } else {
               setPhase(endedMeanwhile ? { kind: "ended" } : before);
-              setNotice(`Could not open the next episode: ${errorMessage(e)}`);
+              setNotice(`${words.failed}: ${errorMessage(e)}`);
+              if (pausedHere) void playerSetProperty("pause", false).catch(() => undefined);
             }
           })
           .finally(() => {
@@ -465,7 +511,11 @@ export function usePlaybackSession(
 
   const playAgain = useCallback(() => actions.current.playAgain(), []);
   const stopAndLeave = useCallback(() => actions.current.stopAndLeave(), []);
-  const loadNext = useCallback((next: PlayerLaunch) => actions.current.loadNext(next), []);
+  const loadNext = useCallback((next: PlayerLaunch) => actions.current.load(next, NEXT_EPISODE), []);
+  const switchStream = useCallback(
+    (next: PlayerLaunch) => actions.current.load(next, OTHER_STREAM),
+    [],
+  );
   const subscribeEvents = useCallback((listener: PlayerEventListener) => {
     listeners.current.add(listener);
     return () => {
@@ -485,6 +535,7 @@ export function usePlaybackSession(
     playAgain,
     stopAndLeave,
     loadNext,
+    switchStream,
     subscribeEvents,
   };
 }

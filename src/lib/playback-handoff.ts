@@ -170,6 +170,33 @@ export function launchForVideo(
   return next ? { ...next, backend: current.backend } : null;
 }
 
+/**
+ * The launch for another stream of the video now playing (the player's Streams menu),
+ * for `player_load` in the same player, starting at `startAtSec`. Null when the stream
+ * is not one the Player can play.
+ */
+export function launchForOtherStream(
+  current: PlayerLaunch,
+  {
+    stream,
+    transportUrl,
+    addonName,
+  }: { stream: Stream; transportUrl: string | null; addonName: string | null },
+  startAtSec: number | null,
+): PlayerLaunch | null {
+  if (!current.meta) return null;
+  const video: Video | null = current.video ? { ...current.video, streams: [] } : null;
+  const next = buildLaunch({
+    meta: current.meta,
+    video,
+    stream,
+    transportUrl,
+    addonName,
+    live: current.live,
+  });
+  return next ? { ...next, startAtSec, backend: current.backend } : null;
+}
+
 function buildLaunch({
   meta,
   video,

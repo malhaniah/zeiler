@@ -219,8 +219,12 @@ export const playerOsdPrompt = (kind: "intro" | "recap" | "outro" | "next" | nul
   invoke<void>("player_osd_prompt", { kind });
 /** Every addon's streams for a video (the next episode's, to binge with), tagged and
  * ranked, without those for another episode than `target`. */
-export const streamsGet = (type: string, id: string, target: EpisodeTarget | null = null) =>
-  invoke<AddonStreams[]>("streams_get", { type, id, ...target });
+export const streamsGet = (
+  type: string,
+  id: string,
+  target: EpisodeTarget | null = null,
+  maxAgeSecs: number | null = null,
+) => invoke<AddonStreams[]>("streams_get", { type, id, ...target, maxAgeSecs });
 
 /** The OpenSubtitles hash and size of the file playing (null: unknown), for subtitle
  * addons when the stream names none. Rust reads the stream itself (two range requests). */

@@ -1,7 +1,8 @@
 /**
  * The bottom control bar of the Player screen, for both backends: seek bar (with the
- * buffered range), play/pause, time, volume and mute, the audio and subtitle menus
- * (AudioMenu, SubtitleMenu: tracks, sources, delays, quick style), playback speed,
+ * buffered range), play/pause, time, volume and mute, the streams menu (StreamsMenu:
+ * the video's other streams), the audio and subtitle menus (AudioMenu, SubtitleMenu:
+ * tracks, sources, delays, quick style), playback speed,
  * fullscreen and — for an external mpv window — Stop. Position-driven
  * parts subscribe to the playback clock themselves, so a time-pos tick re-renders only
  * them.
@@ -16,7 +17,9 @@ import { type PlaybackClock, useClock } from "./playback-clock";
 import { useLive } from "./live";
 import { SubtitleMenu } from "./SubtitleMenu";
 import { QualityMenu } from "./QualityMenu";
+import { StreamsMenu } from "./StreamsMenu";
 import { SPEEDS, type PlayerControls } from "./usePlayerControls";
+import type { StreamSwitch } from "./useStreamSwitch";
 import type { Tracks } from "./useTracks";
 
 export function ControlsBar({
@@ -24,6 +27,7 @@ export function ControlsBar({
   ended,
   mpv,
   tracks,
+  streams,
   controls,
   shown,
   onPoke,
@@ -37,6 +41,8 @@ export function ControlsBar({
   ended: boolean;
   mpv: MpvState;
   tracks: Tracks;
+  /** the video's other streams (null: none to switch to, e.g. live TV) */
+  streams: StreamSwitch | null;
   controls: PlayerControls;
   shown: boolean;
   onPoke: () => void;
@@ -70,6 +76,7 @@ export function ControlsBar({
         />
         <div className="flex-1" />
         <QualityMenu mpv={mpv} />
+        {streams && <StreamsMenu streams={streams} />}
         <AudioMenu tracks={tracks} mpv={mpv} />
         <SubtitleMenu tracks={tracks} mpv={mpv} />
         {!live && <SpeedMenu speed={mpv.speed} />}

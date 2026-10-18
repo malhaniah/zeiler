@@ -80,10 +80,18 @@ export const catalogLoad = (args: {
 export const metaGet = (type: string, id: string) =>
   invoke<MetaLookup>("meta_get", { type, id });
 
+/** The picker asks the addons again past this (the Rust cache keeps an answer longer,
+ * for the player's Streams menu). */
+export const PICKER_MAX_AGE_SECS = 120;
 /** Every addon's streams for a video, tagged and ranked, without those for another
- * episode than `target` (`episodeTarget` in lib/streams.ts). */
-export const streamsGet = (type: string, id: string, target: EpisodeTarget | null = null) =>
-  invoke<AddonStreams[]>("streams_get", { type, id, ...target });
+ * episode than `target` (`episodeTarget` in lib/streams.ts). Rust reuses an answer
+ * for a while; `maxAgeSecs` asks for a younger one. */
+export const streamsGet = (
+  type: string,
+  id: string,
+  target: EpisodeTarget | null = null,
+  maxAgeSecs: number | null = null,
+) => invoke<AddonStreams[]>("streams_get", { type, id, ...target, maxAgeSecs });
 
 export const engineResolve = (request: {
   infoHash: string;

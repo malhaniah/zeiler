@@ -76,7 +76,8 @@ Adapted files:
   segment's end guard (`src/lib/skip-intro/{chapters,index}.ts`)
 - `src/pages/player/SkipLayer.tsx` — the skip pill and the Up Next card
   (`skip-pill.tsx`, `skip-pill-container.tsx`), and `useNextEpisode.ts` — the
-  end-of-episode rule (`use-auto-next-episode.ts`)
+  end-of-episode rule (`use-auto-next-episode.ts`), and `useStreamSwitch.ts` — starting
+  another stream where this one is, after the first 5 s (`use-stream-switcher.ts`)
 - `src/pages/player/StatsOverlay.tsx` — the stats overlay's property list
   (`stats-overlay.tsx`), and `src-tauri/src/commands/mpv/audio.rs` — the volume
   normalization filter's values (`mpv.ts`)

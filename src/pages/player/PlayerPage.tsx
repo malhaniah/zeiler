@@ -31,7 +31,8 @@
  * automatic pick, per-title choices), SubtitleMenu.tsx, AudioMenu.tsx, menu.tsx,
  * useSkip.ts (intro/recap/credits: where, Skip, by itself with Undo), useNextEpisode.ts
  * (the next episode: binge stream, Up Next, by itself), SkipLayer.tsx (their pill,
- * card, toast and keys, over either screen), StatsOverlay.tsx (key i), QualityMenu.tsx
+ * card, toast and keys, over either screen), useStreamSwitch.ts and StreamsMenu.tsx (the
+ * video's other streams, switched to in place), StatsOverlay.tsx (key i), QualityMenu.tsx
  * (HLS variants).
  *
  * The next episode plays in the same player (`player_load`), so the page stays: from
@@ -53,6 +54,7 @@ import { useSurfaceSync } from "./surface-sync";
 import { useNextEpisode } from "./useNextEpisode";
 import { usePlaybackSession } from "./usePlaybackSession";
 import { useSkip } from "./useSkip";
+import { useStreamSwitch } from "./useStreamSwitch";
 import { useTracks } from "./useTracks";
 
 /** `hash` is the player route this page was mounted for (the page is keyed by it). */
@@ -119,6 +121,14 @@ function PlayerSession({ launch: launched, launchId }: { launch: PlayerLaunch; l
     mpv,
     running: phase.kind === "playing" || phase.kind === "ended",
     subscribeEvents: session.subscribeEvents,
+  });
+  // the Streams menu: the video's other streams, played from here
+  const streams = useStreamSwitch({
+    launch,
+    clock,
+    ended: phase.kind === "ended",
+    foreign: tracks.foreign,
+    switchStream: session.switchStream,
   });
   const upNextSeconds = settings?.upNextSeconds ?? 15;
   const next = useNextEpisode({
@@ -247,6 +257,7 @@ function PlayerSession({ launch: launched, launchId }: { launch: PlayerLaunch; l
           phase={phase}
           mpv={mpv}
           tracks={tracks}
+          streams={streams}
           clock={clock}
           notice={session.notice}
           dismissNotice={session.dismissNotice}
@@ -272,6 +283,7 @@ function PlayerSession({ launch: launched, launchId }: { launch: PlayerLaunch; l
         videoBehind={videoBehind}
         mpv={mpv}
         tracks={tracks}
+        streams={streams}
         clock={clock}
         notice={session.notice}
         dismissNotice={session.dismissNotice}
