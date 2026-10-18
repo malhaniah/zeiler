@@ -188,7 +188,8 @@ backend setting says.
     "Subtitles and audio"), speed, fullscreen of the mpv window
     (`cycle fullscreen`) and Stop. Shortcuts while Zeiler has focus: Space, ←/→ (5 s),
     ↑/↓ (volume 5), m, f, s (next subtitle), z/x (subtitle delay −/+0.1 s), [ / ]
-    (slower/faster), Escape (back). When the user closes mpv (`shutdown`) the page
+    (slower/faster), Escape (back); and the mouse wheel over the screen is the volume
+    (see below). When the user closes mpv (`shutdown`) the page
     says "mpv was closed" with Back and Play again. When embedded fell back to mpv,
     a dismissible notice gives `fallbackReason`. If mpv's IPC never came up
     (`remoteControl: false`) the page shows the passive "Playing in mpv" card instead.
@@ -207,6 +208,25 @@ backend setting says.
   completes after the page is gone removes the torrent it just added (librqbit holds a
   magnet only once its metadata arrives, so an earlier remove finds nothing). External
   mpv that is still playing is the exception above.
+- **Mouse wheel volume** (`usePlayerWheel` and `wheelStep` in `usePlayerControls.ts`,
+  both screens, while something plays or has just ended): over Zeiler's window (focused
+  or not; over external mpv's own window mpv's own wheel bindings apply), wheel up is
+  louder and down quieter, in the ↑/↓ steps of 5 up to `audio.volumeMax`. Up is the
+  wheel's or the fingers' own direction where WebKit says the OS turned it round
+  (`webkitDirectionInvertedFromDevice`: macOS natural scrolling, on by default), else
+  the direction content scrolls (WebView2 and WebKitGTK say nothing of a reversed
+  touchpad). A gesture's first event (after 250 ms without one) is a step at once; then
+  a mouse wheel's notch is a step (lines or pages; a legacy `wheelDeltaY` that is a
+  multiple of 120, up to 3 for merged events; on macOS a `deltaY` that is a multiple of
+  4.000244140625, a tenth of a line); pixel scrolling (a trackpad, a high-resolution
+  wheel) adds up, 120 px a step, at most one step every 100 ms and 10 per gesture (a
+  fling's momentum runs on after the fingers lift), the rest dropped when it turns or
+  ends, and once a gesture has had pixel scrolling it stays so. Not while a menu of the
+  control bar is open (the panel carries `data-player-menu`) or over something that can
+  still scroll, not sideways, and not with Ctrl (pinch to zoom) or Cmd. Volume steps
+  that come faster than mpv reports the volume build on the last one asked for, as
+  `z`/`x` and `[`/`]` do (a value mpv refuses is forgotten); the slider goes through
+  the same path.
 - **Player page layout.** `PlayerPage.tsx` (shell, renders by backend), `launch.ts`,
   `usePlaybackSession.ts` (start, resolve, event pump, cleanup), `usePlayerControls.ts`
   (actions and keyboard shortcuts shared by both screens), `playback-clock.ts`

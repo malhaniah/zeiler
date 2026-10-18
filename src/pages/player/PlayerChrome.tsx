@@ -1,9 +1,10 @@
 /**
  * The embedded player's screen — everything drawn above the video: status overlays, the
- * top bar and the control bar, plus the keyboard shortcuts (usePlayerControls.ts). The
- * page is transparent while the built-in video runs (`videoBehind`) and `videoRef`
- * marks the region the native mpv window is glued to. Also drawn while the backend is
- * still unknown (the first moments of loading), then on an opaque background.
+ * top bar and the control bar, plus the keyboard shortcuts and the mouse wheel's volume
+ * (usePlayerControls.ts). The page is transparent while the built-in video runs
+ * (`videoBehind`) and `videoRef` marks the region the native mpv window is glued to.
+ * Also drawn while the backend is still unknown (the first moments of loading), then on
+ * an opaque background.
  *
  * Fullscreen here is the Zeiler window's own (OS) fullscreen, so nothing else ends
  * it: Escape leaves fullscreen first and only then the player, and leaving the
@@ -20,7 +21,7 @@ import type { Tracks } from "./useTracks";
 import { type PlaybackClock, useClock } from "./playback-clock";
 import { BackButton, CenterCard, ClosedCard, NextButton, Spinner } from "./states";
 import { TorrentStats } from "./TorrentStats";
-import { usePlayerControls, usePlayerKeys } from "./usePlayerControls";
+import { usePlayerControls, usePlayerKeys, usePlayerWheel } from "./usePlayerControls";
 
 export function PlayerChrome({
   phase,
@@ -127,6 +128,7 @@ export function PlayerChrome({
     onFullscreen,
     onBack: onEscapeKey,
   });
+  usePlayerWheel(embedded && controllable ? controls : null);
 
   return (
     <div

@@ -65,8 +65,8 @@ export function ControlsBar({
           volume={mpv.volume}
           mute={mpv.mute}
           max={tracks.volumeMax}
+          onVolume={controls.setVolume}
           onMute={controls.toggleMute}
-          onPoke={onPoke}
         />
         <div className="flex-1" />
         <QualityMenu mpv={mpv} />
@@ -233,15 +233,16 @@ function VolumeControl({
   volume,
   mute,
   max,
+  onVolume,
   onMute,
-  onPoke,
 }: {
   volume: number;
   mute: boolean;
   /** `audio.volumeMax` */
   max: number;
+  /** set the volume (and unmute) */
+  onVolume: (value: number) => void;
   onMute: () => void;
-  onPoke: () => void;
 }) {
   // Normally 0…max; external mpv can be louder (its own keys), so the scale grows to
   // the loudest volume seen instead of pinning it.
@@ -262,16 +263,13 @@ function VolumeControl({
       <input
         type="range"
         aria-label="Volume"
+        title="Volume (↑ / ↓, mouse wheel)"
         min={0}
         max={Math.max(ceiling, level)}
         step={1}
         value={mute ? 0 : level}
         className="w-24 cursor-pointer accent-(--color-accent)"
-        onInput={(e) => {
-          void playerSetProperty("volume", Number(e.currentTarget.value)).catch(() => undefined);
-          if (mute) void playerSetProperty("mute", false).catch(() => undefined);
-          onPoke();
-        }}
+        onInput={(e) => onVolume(Number(e.currentTarget.value))}
       />
     </div>
   );

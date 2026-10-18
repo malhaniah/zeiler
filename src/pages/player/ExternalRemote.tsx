@@ -36,7 +36,7 @@ import {
 } from "./states";
 import { TorrentStats } from "./TorrentStats";
 import { backKeepsPlaying } from "./usePlaybackSession";
-import { usePlayerControls, usePlayerKeys } from "./usePlayerControls";
+import { usePlayerControls, usePlayerKeys, usePlayerWheel } from "./usePlayerControls";
 
 const noop = () => undefined;
 
@@ -91,6 +91,7 @@ export function ExternalRemote({
     onFullscreen: controllable ? toggleFullscreen : null,
     onBack,
   });
+  usePlayerWheel(controllable ? controls : null);
 
   const stop = () => {
     setStopping(true);
