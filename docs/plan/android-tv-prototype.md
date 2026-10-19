@@ -284,9 +284,14 @@ the picker, every action was reachable by remote once focus was in the right lay
   needs the app's version and a versionCode that always grows, or updates are refused.
 - **Size.** Release APK, arm64-v8a only: 27.8 MB (`libzeiler_lib.so` 25.5 MB stripped
   with LTO, `classes.dex` 2.6 MB). Many TV devices run a 32-bit (`armeabi-v7a`) system
-  even on 64-bit chips, so a TV build should also ship armv7, about 50 MB as a universal
-  APK, or one APK per ABI. The armv7 Rust build was not tried, because that target
-  wasn't part of the approved download.
+  even on 64-bit chips, so a TV build should also ship armv7.
+  - With both ABIs the universal APK is 45.0 MB (the armv7 library is 17.1 MB). One APK
+    per ABI is the alternative.
+  - The armv7 build needs `RANLIB_armv7_linux_androideabi` pointing at the NDK's
+    `llvm-ranlib`. Otherwise openssl-src calls `arm-linux-androideabi-ranlib`, which NDK
+    29 doesn't ship.
+  - The two-ABI APK ran on the emulator, but only its arm64 half: the image is 64-bit
+    only. The armv7 half hasn't run anywhere.
 - **Signing.** An Android signing key is new and separate from the updater's minisign
   key, which this doesn't touch and which must never rotate. The Android key must never
   be lost or changed either: Android installs an update only when it's signed with the
@@ -359,7 +364,8 @@ HDR check from the verdict before starting, and do Google Play only after piece 
 - **Google Play policy** (§4). Plan for sideloading first.
 - **Two keys** to keep forever: the updater's minisign key and the Android signing
   key.
-- **32-bit ARM** (armv7) builds of librqbit, OpenSSL and the app are untested.
+- **32-bit ARM** (armv7): librqbit, OpenSSL and the app build, but haven't run on a
+  32-bit device.
 - **Background behaviour.** Android stops the app's network when it leaves the
   foreground, so a torrent pauses when the user presses Home. That is fine for
   streaming, but it is a difference from desktop.

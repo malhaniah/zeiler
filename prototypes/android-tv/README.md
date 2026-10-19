@@ -33,6 +33,14 @@ adb shell am start -n io.zeiler.desktop/.MainActivity
 A release APK (`npx tauri android build --apk --target aarch64`) comes out unsigned. For
 the emulator it was zip-aligned and signed with the local debug keystore.
 
+For 32-bit TVs, build both ABIs with `--target aarch64 armv7`; the APK is 45.0 MB. The
+armv7 OpenSSL build needs the NDK's ranlib named, because openssl-src otherwise calls
+`arm-linux-androideabi-ranlib`, which NDK 29 doesn't ship:
+
+```bash
+export RANLIB_armv7_linux_androideabi=$NDK_HOME/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ranlib
+```
+
 ## How playback was tested
 
 Zeiler ships no stream addon, so a throwaway local server on the Mac stood in for one.
