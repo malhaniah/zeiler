@@ -30,7 +30,7 @@ env:
     The built-in player uses libmpv (mpv: LGPL-2.1-or-later) with FFmpeg (built as LGPL-3.0-or-later), shipped as `libmpv-2.dll` beside `zeiler.exe`. Installed with it in `licenses\`: the licence texts, the notices of the libraries inside it (`libmpv-THIRD-PARTY.txt`), and its versions, provenance and source offer (`libmpv-NOTICE.txt`). The source offer is also in [THIRD-PARTY-NOTICES.md](https://github.com/malhaniah/zeiler/blob/main/THIRD-PARTY-NOTICES.md).
 
     ### macOS
-    Download the `.dmg` matching your Mac (`aarch64` = Apple Silicon, `x64` = Intel) and drag Zeiler to Applications. Builds are not notarized: the first time, right-click Zeiler → **Open**, or allow it under System Settings → Privacy & Security. Playback is built in. Optional: to play in your own mpv window instead (Settings → Player → External mpv), install mpv with `brew install mpv`.
+    Download the `.dmg` matching your Mac (`aarch64` = Apple Silicon, `x64` = Intel) and drag Zeiler to Applications. Builds aren't notarized yet, so the first time macOS says “Zeiler” Not Opened: click **Done**, then in System Settings → Privacy & Security click **Open Anyway** next to “Zeiler was blocked” and confirm. (On macOS 14 and earlier, right-click Zeiler → **Open** also works.) Playback is built in. Optional: to play in your own mpv window instead (Settings → Player → External mpv), install mpv with `brew install mpv`.
 
     The built-in player uses libmpv (mpv: LGPL-2.1-or-later) with FFmpeg (LGPL-2.1-or-later) and the libraries they load, shipped in `Zeiler.app/Contents/Frameworks`. In `Contents/Resources/licenses/`: the licence text, the notices of those libraries (`libmpv-THIRD-PARTY.txt`), and their versions, provenance and source offer (`libmpv-NOTICE.txt`).
 

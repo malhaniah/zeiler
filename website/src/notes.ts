@@ -10,7 +10,7 @@ export const FALLBACK_NOTES: Record<Os, string> = {
     "Download the `*-setup.exe` installer and run it (installs per-user, no admin). Builds are unsigned, so SmartScreen may warn: choose **More info → Run anyway**. Playback is built in. Optional: to play in your own mpv window instead (Settings → Player → External mpv), install mpv with `winget install shinchiro.mpv`.",
   ].join("\n"),
   macos: [
-    "Download the `.dmg` matching your Mac (`aarch64` = Apple Silicon, `x64` = Intel) and drag Zeiler to Applications. Builds are not notarized: the first time, right-click Zeiler → **Open**, or allow it under System Settings → Privacy & Security. Install mpv with `brew install mpv`.",
+    "Download the `.dmg` matching your Mac (`aarch64` = Apple Silicon, `x64` = Intel) and drag Zeiler to Applications. Builds aren't notarized yet, so the first time macOS says “Zeiler” Not Opened: click **Done**, then in System Settings → Privacy & Security click **Open Anyway** next to “Zeiler was blocked” and confirm. (On macOS 14 and earlier, right-click Zeiler → **Open** also works.) Playback is built in; mpv is optional (`brew install mpv`, for your own mpv window).",
   ].join("\n"),
   linux: [
     "- Debian/Ubuntu: `sudo apt install ./Zeiler_*_amd64.deb` (pulls in mpv automatically)",
