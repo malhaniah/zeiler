@@ -6,7 +6,7 @@ v0.2.0 the same day, and again on 2026-10-17 when M7 to M13 were merged for v0.3
 
 ## Where things stand
 
-- **In review:** the Android TV prototype's findings (docs only): go, as a milestone
+- **In review:** #55, the Android TV prototype's findings (docs only): go, as a milestone
   of its own (M15, about 9–12 weeks). See "Android TV prototype" below.
 - **Released as v0.3.2** (2026-10-18): #43 (stream quality tags, best-first ranking and strict
   episode matching), #44 (the mouse wheel sets the volume over the player), #45 (switch
