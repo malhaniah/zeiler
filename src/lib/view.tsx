@@ -9,6 +9,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { exit, onBackButtonPress } from "@tauri-apps/api/app";
 import { playerActive } from "./playback-handoff";
 import type { MetaItem, MetaPreview, Video } from "./types";
 
@@ -183,8 +184,35 @@ export function ViewProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [value]);
 
+  // Android TV prototype: the remote's Back key is Escape (it closes a menu, leaves the
+  // player, pops an overlay frame); on a root view with nothing open it leaves the app.
+  // Without a handler Tauri would go back in the WebView's history and then close.
+  useEffect(() => {
+    if (!IS_ANDROID) return;
+    let listener: { unregister: () => Promise<void> } | null = null;
+    let gone = false;
+    void onBackButtonPress(() => {
+      const target = document.activeElement ?? document.body;
+      const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+      const handled =
+        playerActive() || popsOnEscape(value.top) || document.querySelector("[data-player-menu], [role=dialog]");
+      if (handled) target.dispatchEvent(escape);
+      else if (value.top.kind !== "home") value.setView("home");
+      else void exit(0);
+    }).then((l) => {
+      if (gone) void l.unregister();
+      else listener = l;
+    });
+    return () => {
+      gone = true;
+      void listener?.unregister();
+    };
+  }, [value]);
+
   return <ViewContext.Provider value={value}>{children}</ViewContext.Provider>;
 }
+
+const IS_ANDROID = /Android/i.test(navigator.userAgent);
 
 export function useView(): ViewCtx {
   const ctx = useContext(ViewContext);

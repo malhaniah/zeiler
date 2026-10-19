@@ -46,11 +46,23 @@ mod linux;
 #[cfg(all(target_os = "linux", feature = "embedded"))]
 use self::linux as imp;
 
-#[cfg(not(all(feature = "embedded", any(windows, target_os = "macos"))))]
+// the Android TV prototype: Media3 under the WebView, whatever the feature says
+#[cfg(target_os = "android")]
+pub mod android;
+#[cfg(target_os = "android")]
+use self::android as imp;
+
+#[cfg(not(any(
+    target_os = "android",
+    all(feature = "embedded", any(windows, target_os = "macos"))
+)))]
 mod stub;
-#[cfg(not(all(
-    feature = "embedded",
-    any(windows, target_os = "macos", target_os = "linux")
+#[cfg(not(any(
+    target_os = "android",
+    all(
+        feature = "embedded",
+        any(windows, target_os = "macos", target_os = "linux")
+    )
 )))]
 use self::stub as imp;
 
@@ -288,8 +300,12 @@ pub struct EmbeddedStatus {
 }
 
 impl EmbeddedStatus {
-    // macOS builds with the built-in player never report it unavailable
-    #[cfg_attr(all(target_os = "macos", feature = "embedded"), allow(dead_code))]
+    // macOS builds with the built-in player never report it unavailable, nor does the
+    // Android TV prototype (Media3)
+    #[cfg_attr(
+        any(target_os = "android", all(target_os = "macos", feature = "embedded")),
+        allow(dead_code)
+    )]
     fn unavailable(reason: String) -> Self {
         Self {
             available: false,

@@ -373,6 +373,27 @@ export function usePlayerKeys({
           if (target instanceof HTMLButtonElement) target.blur();
           controls.togglePauseOrReplay();
           break;
+        // Android TV prototype: the remote's media keys, and the D-pad's centre (Enter)
+        // when no control has the focus
+        case "Enter":
+          if (target instanceof HTMLButtonElement || target instanceof HTMLInputElement) break;
+          e.preventDefault();
+          controls.togglePauseOrReplay();
+          break;
+        case "MediaPlayPause":
+        case "MediaPlay":
+        case "MediaPause":
+          e.preventDefault();
+          controls.togglePauseOrReplay();
+          break;
+        case "MediaFastForward":
+          e.preventDefault();
+          controls.seekBy(SEEK_STEP_SEC);
+          break;
+        case "MediaRewind":
+          e.preventDefault();
+          controls.seekBy(-SEEK_STEP_SEC);
+          break;
         case "ArrowLeft":
           e.preventDefault();
           controls.seekBy(-SEEK_STEP_SEC);

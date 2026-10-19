@@ -14,6 +14,11 @@ mod settings_groups;
 mod state;
 mod streams_cache;
 mod subtitles;
+#[cfg(desktop)]
+mod updater;
+// the updater plugin is desktop only (Android TV prototype)
+#[cfg(mobile)]
+#[path = "updater_mobile.rs"]
 mod updater;
 mod window_state;
 
@@ -25,6 +30,7 @@ use tracing::{error, info};
 use crate::library::{LIBRARY_CHANGED, LibraryChanged, LibraryState};
 use crate::state::AppState;
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -45,6 +51,12 @@ pub fn run() {
             // a stremio:// link opened while Zeiler runs (deeplink.rs)
             tauri::async_runtime::spawn(deeplink::handle_args(app.clone(), argv, false));
         }));
+    }
+
+    // the Android TV prototype's player (commands/mpv/android.rs)
+    #[cfg(target_os = "android")]
+    {
+        builder = builder.plugin(commands::mpv::android::plugin());
     }
 
     builder

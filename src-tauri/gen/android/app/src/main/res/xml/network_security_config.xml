@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android TV prototype. Release builds refuse plain http in Java's networking (Media3's
+     data source), which would stop every torrent: the engine streams over
+     http://127.0.0.1. Addons may also hand out http streams, which mpv plays on desktop,
+     so cleartext stays allowed everywhere; limiting it to the loopback below instead is
+     an owner decision (docs/plan/android-tv-prototype.md). Rust's reqwest is not
+     affected by this file either way. -->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

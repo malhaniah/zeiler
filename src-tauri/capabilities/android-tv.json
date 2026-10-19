@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "android-tv",
+  "description": "Android TV prototype: the remote's Back key leaves the app from a root view",
+  "platforms": ["android"],
+  "windows": ["main"],
+  "permissions": ["core:app:allow-exit"]
+}

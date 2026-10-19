@@ -66,6 +66,11 @@ windows-registry = "0.6"
 webview2-com = { workspace = true, optional = true }
 windows = { workspace = true, optional = true }
 
+# Android TV prototype: native-tls (reqwest) and librqbit's SHA-1 link OpenSSL, which
+# Android doesn't ship to apps, so it is built from source for the target
+[target.'cfg(target_os = "android")'.dependencies]
+openssl = { version = "0.10", features = ["vendored"] }
+
 # the macOS embedded surface (NSOpenGLView under the WKWebView); the versions wry uses
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { workspace = true, optional = true }
