@@ -231,6 +231,15 @@ the rest transparent, and a solid green lavfi video. It runs in CI on ubuntu-24.
 
 ## Not yet verified on a real machine
 
+- macOS first launch. The macOS builds are signed ad hoc (`Signature=adhoc`, no team ID)
+  and not notarized, because `release.yml` passes no Apple signing identity, so Gatekeeper
+  rejects the downloaded app. The owner hit it with v0.3.2 on an Apple Silicon Mac
+  (macOS 27): "“Zeiler” Not Opened … Move to Trash / Done". Since macOS 15 the old
+  right-click → Open bypass no longer works. Opening it takes System Settings → Privacy &
+  Security → **Open Anyway**, which the README, the website and the release notes now
+  describe. The real fix is Developer ID signing and notarization in `release.yml` (the
+  `APPLE_*` secrets tauri-action reads, including for the bundled libmpv dylibs), which
+  needs the owner's Apple Developer Program account.
 - Auto-play in the app: smoke-tested in the browser with mocked IPC (Continue Watching
   straight to the player and Back to the Library, the resume prompt first, nothing
   matching → the list, a failing stream → Choose another stream, the Detail Play

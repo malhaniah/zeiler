@@ -45,9 +45,12 @@ Playback is built in on Windows and macOS. On Linux it needs [mpv](https://mpv.i
 | Other Linux | `Zeiler_*_amd64.AppImage` | from your distro |
 
 Builds are not code-signed or notarized yet. On Windows, SmartScreen may warn — choose
-**More info → Run anyway**. On macOS, right-click Zeiler → **Open** the first time (or allow
-it under System Settings → Privacy & Security). Once installed, Zeiler updates itself:
-signed updates install automatically the next time you open it.
+**More info → Run anyway**. On macOS, the first time it says “Zeiler” Not Opened: click
+**Done**, then in System Settings → Privacy & Security click **Open Anyway** next to “Zeiler
+was blocked” and confirm (on macOS 14 and earlier, right-click Zeiler → **Open** also works;
+from a terminal, `xattr -dr com.apple.quarantine /Applications/Zeiler.app` does the same).
+Once installed, Zeiler updates itself: signed updates install automatically the next time you
+open it.
 
 **Upgrading from Sailor.** Zeiler was called Sailor up to v0.1.2, and Sailor installs update
 to Zeiler on their own. Your addons and settings come along. On Windows the update also

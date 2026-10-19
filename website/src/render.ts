@@ -56,7 +56,7 @@ function ctaWindows(r: Release, o: CtaOptions): string {
 }
 
 const MAC_NOTE =
-  '<p class="cta-note">The first time, right-click Zeiler → <strong>Open</strong> (builds aren’t notarized yet). Playback needs <a href="https://mpv.io">mpv</a>: <code>brew install mpv</code>.</p>';
+  '<p class="cta-note">Builds aren’t notarized yet: the first time, click <strong>Done</strong> on macOS’s warning, then <strong>Open Anyway</strong> in System Settings → Privacy &amp; Security. Playback is built in.</p>';
 
 function ctaMac(r: Release, arch: DetectedArch, o: CtaOptions): string {
   const arm = find(r, "dmg", "arm64");
