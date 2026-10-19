@@ -16,20 +16,22 @@ and Fire TV only.
 - **The hard parts work.** The existing app builds for Android with Tauri 2.12 after four
   small changes. It runs on the TV emulator: catalogs, addons, the library, the picker and
   the player screen. The librqbit torrent engine runs on Android. A Media3 player sits
-  under the transparent WebView and the existing player screen drives it unchanged. The
-  D-pad seeks and pauses.
+  under the transparent WebView, and the existing player screen drives it, with only
+  Enter and media-key handling added. The D-pad seeks and pauses.
 - **The work is mostly the 10-foot UI.** Chromium's built-in spatial navigation moves
   the focus around with no code at all, with a visible focus ring. But overlays,
   dialogs, poster rows and the player's menus trap or lose the focus (see §3). A TV
   mode needs its own focus layer, a remote-first player control mode and phone-assisted
-  text entry. That is about half of the estimate below.
-- **Media3 rather than libmpv** for the TV player. It passes HDR and Dolby Vision to the
-  display, does audio passthrough and frame-rate matching, and is a Gradle dependency
-  under Apache-2.0. libmpv on Android can't output HDR and draw subtitles at the same time.
-  What Media3 gives up is libass-quality ASS, subtitle delay and a second subtitle.
-- **Estimate: about 9–12 focused weeks** for a sideloadable APK that is pleasant to use
-  with a remote, plus real-device testing. Add store work if Google Play is wanted.
-  Play is the riskiest part (§4).
+  text entry. That is about 40% of the estimate below.
+- **Media3 rather than libmpv** for the TV player. Media3 is built to pass HDR and Dolby
+  Vision to the display, to pass audio through and to match frame rates (documented,
+  not yet seen on a device). It's also a Gradle dependency under Apache-2.0. libmpv on
+  Android can't output HDR and draw subtitles at the same time. What Media3 gives up is
+  libass-quality ASS, subtitle delay, a second subtitle, and DTS or TrueHD unless the
+  HDMI sink takes them as passthrough.
+- **Estimate: about 9–12 focused weeks** (the table below adds up to 8.5–11.5) for a
+  sideloadable APK that is pleasant to use with a remote, plus real-device testing. Add
+  store work if Google Play is wanted. Play is the riskiest part (§4).
 
 Gate the milestone on one thing first: an afternoon on a real Google TV device (a Google
 TV Streamer or a Chromecast with Google TV) playing a 4K HDR10/Dolby Vision HEVC file with
@@ -47,14 +49,20 @@ installed Temurin 25, so no other JDK was needed.
 
 **Unmodified `main`, compiled for `aarch64-linux-android`, fails on:**
 
-1. `openssl-sys` can't find OpenSSL. reqwest's `native-tls` (all crates) and librqbit's
-   SHA-1 (`crypto-hash`) link OpenSSL, which Android doesn't offer to apps. Fixed with
-   `openssl = { features = ["vendored"] }` for `target_os = "android"`
+1. `openssl-sys` can't find OpenSSL, which Android doesn't offer to apps. Two things
+   link it:
+   - `native-tls` on reqwest 0.12, in zeiler-addon, zeiler-iptv, zeiler-skip and
+     zeiler-sync (librqbit's own reqwest 0.13 already uses rustls);
+   - librqbit's SHA-1 (`crypto-hash`, sha1w's default feature).
+
+   Fixed with `openssl = { features = ["vendored"] }` for `target_os = "android"`
    (`src-tauri/Cargo.toml`). It adds `openssl-src` 300.6.1+3.6.3 (Apache-2.0) to
-   `Cargo.lock` and builds OpenSSL 3.6.3 with the NDK's clang. `cargo update` was not run.
-   Moving reqwest and librqbit to rustls on Android is the alternative.
-2. `updater.rs` imports `tauri-plugin-updater` unconditionally, which has no Android
-   build (two errors). The prototype keeps it for `desktop` and adds
+   `Cargo.lock` and builds OpenSSL 3.6.3 with the NDK's clang. `cargo update` was not
+   run. The alternative is rustls for Zeiler's reqwest plus librqbit's `rust-tls`
+   feature, which moves SHA-1 to aws-lc-rs: also C, so it also needs the NDK.
+2. `updater.rs` imports `tauri-plugin-updater` unconditionally, while
+   `src-tauri/Cargo.toml` depends on it only for macOS, Windows and Linux (two errors).
+   The plugin doesn't update on mobile anyway. The prototype keeps it for `desktop` and adds
    `updater_mobile.rs`, the same three commands answering "can't update itself".
 3. `window_state.rs` calls `maximize()`, which mobile windows don't have. It's now
    `#[cfg(desktop)]`.
@@ -81,9 +89,13 @@ aligned (`LOAD … 0x4000`), which Google Play requires for apps targeting Andro
   from the owner's network. The engine's HTTP stream over `127.0.0.1` therefore wasn't
   played through Media3.
 - **The keychain doesn't persist on Android.** `keyring` 3.6.3 has no Android backend,
-  so it falls back to its mock store. `set` succeeds and Zeiler reports "kept in the OS
-  keychain", but each new `Entry` reads back empty, so a Stremio session or an IPTV
-  password would be gone at the next read. A TV build needs an Android Keystore-backed
+  so it falls back to its mock store, which keeps a secret only inside the `Entry` that
+  set it. `set` succeeds, so Zeiler reports both kinds of secret as stored in the OS
+  (`Storage::Os`), and Settings shows no "kept until Zeiler quits" note. But:
+  - an IPTV password is gone at the next read (`secrets.rs` drops its memory copy after
+    a successful set);
+  - a Stremio session lasts until the app quits (`account/secrets.rs` caches it), then
+    it's gone. A TV build needs an Android Keystore-backed
   store, for example a small Kotlin plugin encrypting with a Keystore key into the app's
   private files. This comes from reading the code; no sign-in was tried on the emulator.
 - **WebView age.** The emulator image ships Android System WebView 113 (Chrome 113).
@@ -111,7 +123,7 @@ aligned (`LOAD … 0x4000`), which Google Play requires for apps targeting Andro
 |---|---|---|
 | Fit with Zeiler | Same property and command model as desktop; `zeiler-player`'s embedded backend could drive it from Rust, with JNI only for the Surface | A new backend; the prototype maps mpv's names onto it (below) |
 | MKV, HEVC | Yes (FFmpeg demuxer; MediaCodec decoding) | Yes (Matroska extractor; MediaCodec decoding) |
-| HDR10, Dolby Vision on the TV | No HDR output: mpv's `--target-colorspace-hint` (HDR passthrough) supports only "Wayland, D3D11 and winvk" (mpv 0.41 manual), so `vo=gpu` tone-maps to SDR. `vo=mediacodec_embed` renders straight to the Surface, but then "subtitle rendering, OSD/OSC, video filters, etc are not available" (same manual) | The platform decoder renders to the Surface: HDR10, HLG and Dolby Vision reach the display where the device supports them; frame-rate matching (seamless only by default) and tunnelled playback are built in |
+| HDR10, Dolby Vision on the TV | No HDR output: mpv's `--target-colorspace-hint` (HDR passthrough, which also requires `--vo=gpu-next`) is "supported on Wayland, D3D11 and winvk contexts" (mpv 0.41 manual), so `vo=gpu`/`gpu-next` tone-maps to SDR. `vo=mediacodec_embed` renders straight to the Surface, but then "many of mpv's features (subtitle rendering, OSD/OSC, video filters, etc) are not available" (same manual) | The platform decoder renders to the Surface: HDR10, HLG and Dolby Vision reach the display where the device supports them; frame-rate matching (seamless only by default) and tunnelled playback are built in |
 | Audio | Decodes everything in software (DTS, TrueHD), S/PDIF passthrough options | Platform decoders, plus passthrough of AC-3, E-AC-3 (Atmos), DTS and TrueHD to an HDMI sink that takes them; no DTS or TrueHD decoding without the FFmpeg extension, which you build yourself |
 | Subtitles | libass: full ASS styling, PGS, VobSub, any external file at any time, delay, a second subtitle | SRT, WebVTT, TTML, basic ASS, PGS and VobSub in MKV; an external file means preparing the item again; no subtitle delay (1.11.1's `TextRenderer` and `ExoPlayer` have no offset setting) and no second subtitle |
 | Licence with GPL-3.0-or-later | Compatible: mpv-android builds mpv without `-Dgpl=false`, so GPL-2.0-or-later, and FFmpeg LGPL. Every library's source must be offered, as Zeiler already does for macOS | Compatible: Apache-2.0, a Maven dependency, nothing to mirror |
@@ -193,7 +205,7 @@ nowhere.
 - HLS and live TV (the plugin has `media3-exoplayer-hls`).
 - `player_load` for the next episode, and a switch from the Streams menu.
 - A torrent through the app.
-- The Linux and Windows desktop builds of this branch, beyond the gates below.
+- The Linux and Windows desktop builds of this branch (only the macOS gates were run on it).
 
 ## 3. The 10-foot UI
 
@@ -213,7 +225,8 @@ the picker, every action was reachable by remote once focus was in the right lay
 1. **Poster rows lose items.** Spatial navigation scrolls a row by 40 px, and
    `scroll-snap-type: x mandatory` snaps it straight back. The focus reached the 5th card
    off-screen (only a sliver of its ring showed, screenshot 03), then wrapped back to the
-   1st. Items 6–10 of a row are unreachable.
+   1st. Every card after the 5th is unreachable: items 6–10 of a Top 10 row, and the
+   rest of a catalog row, which also never loads its next page.
 2. **Scroll containers are focus stops.** `main`, the sidebar and each row's track take
    the focus themselves, so each row costs about four Down presses. Down scrolls
    `main` 40 px at a time when nothing focusable is in view.
@@ -291,11 +304,16 @@ the picker, every action was reachable by remote once focus was in the right lay
   (2).
 - **Google Play would likely raise:**
   - **Unauthorized access to copyrighted content.** Zeiler ships no content addons,
-    and Stremio itself is on Google Play and Android TV, so a content-neutral client can
-    pass. But the opt-in community directory (M10's Browse tab lists stremio-addons.net)
-    and `stremio://` installs make Zeiler look like a piracy front end to a reviewer.
+    and Stremio, also content-neutral, ships an Android TV app (several sources say it
+    is on Google Play; not checked against the listing), so such a client can pass. But
+    the opt-in community directory (M10's Browse tab lists stremio-addons.net) and
+    `stremio://` installs make Zeiler look like a piracy front end to a reviewer.
     The Play build should leave the directory out and describe Zeiler as a client for
     the user's own addons, Stremio account, IPTV playlists and local files.
+  - **The brand.** The logo, used for the icon and the prototype's banner, is a pirate
+    ship flying a skull and crossbones. A reviewer will see it before any addon
+    directory. **Owner decision:** keep it for a store listing, or use store-only
+    artwork.
   - **The BitTorrent engine.** It's allowed (torrent clients are on Play), but a
     reviewer will look harder at it next to "streaming".
   - **TV app quality review.** It's manual: full D-pad navigation (everything in §3),
