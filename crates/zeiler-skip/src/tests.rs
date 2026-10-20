@@ -138,10 +138,12 @@ fn theintrodb_is_asked_on_v4() {
 }
 
 /// A loopback HTTP server: answers a request whose path and query start with a route's
-/// prefix with that route's status and body (404 otherwise), and logs every request.
+/// prefix with that route's status and body (404 otherwise), and logs every request's
+/// path and `User-Agent`.
 struct Loopback {
     base: String,
     requests: Arc<Mutex<Vec<String>>>,
+    agents: Arc<Mutex<Vec<String>>>,
 }
 
 impl Loopback {
@@ -155,12 +157,15 @@ impl Loopback {
             .map(|(prefix, status, body)| ((*prefix).to_owned(), *status, (*body).to_owned()))
             .collect();
         let requests: Arc<Mutex<Vec<String>>> = Arc::default();
+        let agents: Arc<Mutex<Vec<String>>> = Arc::default();
         let log = Arc::clone(&requests);
+        let agent_log = Arc::clone(&agents);
         tokio::spawn(async move {
             loop {
                 let (mut socket, _) = listener.accept().await.unwrap();
                 let routes = routes.clone();
                 let log = Arc::clone(&log);
+                let agent_log = Arc::clone(&agent_log);
                 tokio::spawn(async move {
                     let mut head = Vec::new();
                     let mut chunk = [0u8; 1024];
@@ -173,6 +178,13 @@ impl Loopback {
                     let head = String::from_utf8_lossy(&head);
                     let path = head.split_whitespace().nth(1).unwrap_or("").to_owned();
                     log.lock().unwrap().push(path.clone());
+                    if let Some(agent) = head.lines().find_map(|line| {
+                        let (name, value) = line.split_once(':')?;
+                        name.eq_ignore_ascii_case("user-agent")
+                            .then(|| value.trim().to_owned())
+                    }) {
+                        agent_log.lock().unwrap().push(agent);
+                    }
                     let (status, body) = routes
                         .iter()
                         .find(|(prefix, _, _)| path.starts_with(prefix.as_str()))
@@ -188,7 +200,11 @@ impl Loopback {
                 });
             }
         });
-        Loopback { base, requests }
+        Loopback {
+            base,
+            requests,
+            agents,
+        }
     }
 
     fn client(&self) -> SkipClient {
@@ -203,6 +219,10 @@ impl Loopback {
 
     fn requests(&self) -> Vec<String> {
         self.requests.lock().unwrap().clone()
+    }
+
+    fn agents(&self) -> Vec<String> {
+        self.agents.lock().unwrap().clone()
     }
 }
 
@@ -339,4 +359,27 @@ async fn theintrodb_answers_for_imdb_and_tmdb_ids() {
         ],
         "an unknown length sends no duration_ms (0 would pick the version of unknown length)"
     );
+}
+
+#[tokio::test]
+async fn every_request_names_zeiler_and_where_to_reach_it() {
+    // TheIntroDB asked for the app's name: with it a service can attribute the traffic,
+    // and the URL says who to reach before it changes something
+    assert!(
+        USER_AGENT.starts_with(&format!("Zeiler/{} ", env!("CARGO_PKG_VERSION"))),
+        "{USER_AGENT}"
+    );
+    assert!(
+        USER_AGENT.ends_with("(+https://github.com/malhaniah/zeiler)"),
+        "{USER_AGENT}"
+    );
+    let server = Loopback::start(&[(
+        "/introdb/v4/media?tmdb_id=278",
+        200,
+        r#"{"credits":[{"start_ms":8300000,"end_ms":null}]}"#,
+    )])
+    .await;
+    let shawshank = route("tmdb:278", "tmdb:278").unwrap();
+    assert_eq!(server.client().segments(&shawshank, 8520.0).await.len(), 1);
+    assert_eq!(server.agents(), [USER_AGENT]);
 }
