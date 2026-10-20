@@ -6,6 +6,8 @@ v0.2.0 the same day, and again on 2026-10-17 when M7 to M13 were merged for v0.3
 
 ## Where things stand
 
+- **In review:** #55, the Android TV prototype's findings (docs only): go, as a milestone
+  of its own (M15, about 9–12 weeks). See "Android TV prototype" below.
 - **Released as v0.3.2** (2026-10-18): #43 (stream quality tags, best-first ranking and strict
   episode matching), #44 (the mouse wheel sets the volume over the player), #45 (switch
   the stream from inside the player) and #46 (auto-play the best matching stream, a
@@ -218,6 +220,33 @@ the rest transparent, and a solid green lavfi video. It runs in CI on ubuntu-24.
   M14 needs a newer build host (raising the glibc floor) or a `dlopen`-based binding that
   falls back to external mpv. Then the shell side: Tauri's webview moved into a
   `GtkOverlay` above a `GtkGLArea`, geometry in logical px, `LC_NUMERIC` after GTK init.
+
+## Android TV prototype: go, as a milestone
+
+The owner asked whether a TV version is possible. Android TV and Google TV were
+prototyped on the Google TV emulator; Fire TV's Fire OS should take the same APK
+(untested). Samsung and LG were not prototyped (they would need a separate web app or
+casting). The findings, a milestone plan with effort per piece, and
+the risks are in [android-tv-prototype.md](android-tv-prototype.md). The code is on the
+branch `claude/android-tv-prototype` (not for merging): Tauri's Android project, a Media3
+player behind the existing player API (`Session::Host`, an in-app Kotlin plugin), the
+build fixes, and emulator screenshots.
+
+- It builds and runs. Four small changes make `main` compile for Android: vendored
+  OpenSSL, the updater and `maximize()` desktop only, and the mobile entry point.
+  librqbit runs on Android too.
+- Media3, not libmpv, for the TV player: libmpv on Android can't output HDR and draw
+  subtitles at once. HTTP MKV playback, D-pad seek and pause, tracks and external
+  subtitles work on the emulator. HDR was not seen (the emulator has no HEVC Main10
+  decoder).
+- Most of the work is the 10-foot UI: overlays, dialogs, poster rows and the player's
+  menus trap or lose the D-pad focus.
+- **Owner decisions** before starting:
+  - cleartext HTTP on Android (everywhere, or only the engine's loopback);
+  - the Android package name (`io.zeiler.desktop` or a new one, fixed forever);
+  - sideloading only, or also Google Play (its policy risks are the community addon
+    directory and the pirate-ship logo).
+  - Then a real-device HDR check first.
 
 ## Follow-ups from M13
 
