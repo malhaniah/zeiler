@@ -951,7 +951,10 @@ is up; leaving the player pops the history entry it pushed.
   commands pass the allow-list tables in `commands/mpv/validate.rs`; stream URLs,
   headers and tokens reach mpv over its private IPC connection, never argv.
 - Skip lookups go only to AniSkip, Kitsu and TheIntroDB (fixed hosts, from Rust, behind
-  a setting); the in-window skip prompt sends fixed mpv commands only.
+  a setting), each with `User-Agent: Zeiler/<version> (+https://github.com/malhaniah/zeiler)`
+  (`zeiler_skip::USER_AGENT`), so a service can attribute the traffic and reach the
+  maintainers (TheIntroDB asked for this in #30); the in-window skip prompt sends fixed
+  mpv commands only.
 - Subtitle downloads are http(s) only and capped (10 MiB, also unpacked); archives, web
   pages and any text that does not start as a subtitle format (an mpv EDL, a CUE sheet,
   a playlist) are refused, because a saved file is local to mpv; files land under the

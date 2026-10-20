@@ -215,24 +215,29 @@ impl std::fmt::Display for FetchError {
     }
 }
 
+/// The `User-Agent` of every request to AniSkip, Kitsu and TheIntroDB: the app, its
+/// version and where to reach its maintainers, so a service can attribute the traffic
+/// and get in touch before it changes something (TheIntroDB asked for this).
+pub const USER_AGENT: &str = concat!(
+    "Zeiler/",
+    env!("CARGO_PKG_VERSION"),
+    " (+https://github.com/malhaniah/zeiler)"
+);
+
 impl SkipClient {
-    /// A client for the real services, sending `user_agent` (`Zeiler/<version>`).
-    pub fn new(user_agent: &str) -> Result<Self, reqwest::Error> {
-        Self::build(user_agent, Endpoints::default(), false)
+    /// A client for the real services.
+    pub fn new() -> Result<Self, reqwest::Error> {
+        Self::build(Endpoints::default(), false)
     }
 
     /// A client for other endpoints that ignores proxy settings (tests).
     pub fn with_endpoints(endpoints: Endpoints) -> Result<Self, reqwest::Error> {
-        Self::build("Zeiler/test", endpoints, true)
+        Self::build(endpoints, true)
     }
 
-    fn build(
-        user_agent: &str,
-        endpoints: Endpoints,
-        no_proxy: bool,
-    ) -> Result<Self, reqwest::Error> {
+    fn build(endpoints: Endpoints, no_proxy: bool) -> Result<Self, reqwest::Error> {
         let mut builder = reqwest::Client::builder()
-            .user_agent(user_agent)
+            .user_agent(USER_AGENT)
             .timeout(TIMEOUT)
             .connect_timeout(TIMEOUT);
         if no_proxy {

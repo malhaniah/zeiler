@@ -110,10 +110,7 @@ pub fn run() {
             app.manage(commands::mpv::PlayerState::default());
             // skip times (AniSkip, TheIntroDB): asked from Rust, the CSP keeps the
             // webview off those hosts
-            app.manage(zeiler_skip::SkipClient::new(concat!(
-                "Zeiler/",
-                env!("CARGO_PKG_VERSION")
-            ))?);
+            app.manage(zeiler_skip::SkipClient::new()?);
             deeplink::refresh_registration(app.handle(), deep_link_on);
             // a stremio:// link that started the app waits for the UI to ask for it
             tauri::async_runtime::block_on(deeplink::handle_args(
