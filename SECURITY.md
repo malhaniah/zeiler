@@ -13,7 +13,7 @@ ships as a new release, which installed copies pick up on their own.
 
 | Version | Supported |
 | --- | --- |
-| v0.2.1 (current) | Yes |
+| v0.2.1 | Yes |
 | Older releases, including Sailor v0.1.x | No. Update to the latest release. |
 
 The next release will carry milestones M7 to M13 (skip and next episode, catalogs, Live TV
