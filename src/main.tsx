@@ -2,16 +2,26 @@ import React, { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 
 import type { ReactNode } from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import { WebShell } from "./chrome/WebShell";
 import { isPlayerHash, playerActive, subscribeRoute } from "./lib/playback-handoff";
 import { PlayerPage } from "./pages/player/PlayerPage";
 import "./index.css";
+
+const IN_TAURI = "__TAURI_INTERNALS__" in window;
+
+function Root() {
+  // A production browser must not call native IPC before the desktop-required state
+  // can explain what is unavailable. Dev browser smoke tests still render the full UI.
+  if (!IN_TAURI && import.meta.env.PROD) return <WebShell />;
+  return <NativeRoot />;
+}
 
 // The Player screen (#/player) is drawn over the app shell, which stays mounted but
 // hidden (display:none + inert) underneath. The view stack therefore survives playback
 // and Back (history.back) lands on the stream picker exactly where the user left it.
 // The player is mounted outside StrictMode so the mpv instance isn't started/stopped
 // twice in dev; the shell keeps its StrictMode.
-function Root() {
+function NativeRoot() {
   const hash = useSyncExternalStore(subscribeRoute, () => window.location.hash);
   const active = isPlayerHash(hash);
   return (
@@ -75,6 +85,12 @@ function KeptMounted({ hidden, children }: { hidden: boolean; children: ReactNod
 // drops straight into the player for testing
 if (import.meta.env.DEV && import.meta.env.VITE_ZEILER_AUTOPLAY && !window.location.hash) {
   window.location.hash = import.meta.env.VITE_ZEILER_AUTOPLAY as string;
+}
+
+if (!IN_TAURI && import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    void navigator.serviceWorker.register("/service-worker.js").catch(() => undefined);
+  });
 }
 
 ReactDOM.createRoot(document.getElementById("root")!).render(<Root />);

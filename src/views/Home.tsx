@@ -54,7 +54,7 @@ export function HomeView() {
 
   if (!loaded) {
     return (
-      <main className="flex-1 overflow-y-auto px-12 pt-28">
+      <main className="flex-1 overflow-y-auto px-5 pt-28">
         <Spinner label="Loading…" />
       </main>
     );
@@ -65,7 +65,7 @@ export function HomeView() {
     const hasLive =
       !hideLiveTv && roomCatalogs(addons, "live", { hideAnime, showAdult, hideLiveTv }).length > 0;
     return (
-      <main className="flex-1 overflow-y-auto px-12 pt-32">
+      <main className="flex-1 overflow-y-auto px-5 pt-32">
         <EmptyState title="Welcome aboard">
           Zeiler ships with no content. Install an addon that provides catalogs and this page
           becomes your harbor.
@@ -100,16 +100,16 @@ export function HomeView() {
   const reserved = new Set([...heroIds, ...rankItems.map((m) => m.id)]);
 
   return (
-    <main className="flex-1 overflow-y-auto px-5 pb-14 pt-24 sm:px-8 lg:px-12 lg:pt-28">
-      <div className="flex flex-col gap-12">
-        {catalogs.length > 0 && (
-          <HeroCarousel
-            items={heroItems}
-            typeLabel={typeLabel(lead.catalog.type)}
-            onOpen={(meta) => openMeta(meta)}
-          />
-        )}
-
+    <main className="flex-1 overflow-y-auto pb-14">
+      {catalogs.length > 0 && (
+        <HeroCarousel
+          items={heroItems}
+          variant="bleed"
+          typeLabel={typeLabel(lead.catalog.type)}
+          onOpen={(meta) => openMeta(meta)}
+        />
+      )}
+      <div className="flex flex-col gap-9 px-5 sm:px-8 lg:px-12">
         <ContinueWatchingRow />
 
         {customizing ? (
@@ -122,7 +122,7 @@ export function HomeView() {
         ) : (
           <>
             {rankItems.length >= 10 && (
-              <Row title={`Top 10 — ${lead.name}`} min={180}>
+              <Row title={`Top 10 — ${lead.name}`} min={156}>
                 {rankItems.map((meta, i) => (
                   <TopRankCard
                     key={meta.id}
@@ -153,7 +153,7 @@ export function HomeView() {
             <div className="flex justify-center">
               <button
                 onClick={() => setCustomizing(true)}
-                className="flex h-10 items-center gap-2 rounded-full border border-edge-soft px-5 text-[13px] font-medium text-ink-muted transition-colors hover:border-ink hover:text-ink"
+                className="flex h-11 items-center gap-2 rounded-full border border-edge-soft px-5 text-[13px] font-medium text-ink-muted transition-colors hover:border-ink hover:text-ink"
               >
                 <SlidersHorizontal size={15} />
                 Customize Home

@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 import { SearchOverlay } from "./chrome/SearchOverlay";
-import { Sidebar } from "./chrome/Sidebar";
+import { MobileNav } from "./chrome/MobileNav";
 import { Topbar } from "./chrome/Topbar";
-import { UpdateBanner } from "./chrome/UpdateBanner";
+import { UpdatePrompt } from "./chrome/UpdatePrompt";
 import { LibraryProvider } from "./lib/library";
 import { subscribePickerRequests } from "./lib/playback-handoff";
 import { ProfilesProvider } from "./lib/profiles";
@@ -58,8 +58,8 @@ function Shell() {
   const { stack, top, setView } = useView();
   const { settings } = useSettings();
   usePickerRequests();
-  // Harbor rule: side chrome hides when the picker or settings sit on top.
-  const hideSidebar = top.kind === "picker" || top.kind === "settings";
+  // The picker and settings cover the small-screen bottom navigation.
+  const hideMobileNav = top.kind === "picker" || top.kind === "settings";
   const rootFrame = stack.find((f) => ROOT_VIEWS.includes(f.kind as RootView));
   const root = (rootFrame?.kind ?? "home") as RootView;
   const overlays = stack.filter(isOverlay);
@@ -73,8 +73,8 @@ function Shell() {
 
   return (
     <div className="relative flex h-full">
-      {!hideSidebar && <Sidebar />}
-      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+      {!hideMobileNav && <MobileNav />}
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] xl:pb-0">
         {/* top fade so content scrolling under the fixed topbar stays legible */}
         <div
           aria-hidden
@@ -87,7 +87,7 @@ function Shell() {
       </div>
       <Topbar />
       <SearchOverlay />
-      <UpdateBanner />
+      <UpdatePrompt />
       <InstallHost />
       <ProfilePicker
         onManage={() => {

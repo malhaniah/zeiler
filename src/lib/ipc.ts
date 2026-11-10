@@ -115,7 +115,7 @@ export interface UpdateStatus {
   ready?: string | null;
 }
 export const updateStatus = () => invoke<UpdateStatus>("update_status");
-/** checks and downloads; resolves to the new version, or null when up to date */
+/** checks, downloads and emits update://ready; resolves to the version, or null when current */
 export const updateCheck = () => invoke<string | null>("update_check");
 export const updateInstallNow = () => invoke<void>("update_install_now");
 

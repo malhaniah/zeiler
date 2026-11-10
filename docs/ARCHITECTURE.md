@@ -17,7 +17,7 @@ addon URLs. This document records the load-bearing decisions and the shape of th
 | Content neutrality | No seeded stream addons; built-ins are metadata or subtitles only, switchable, never streams | Unlike Harbor (which also seeds Torrentio), Zeiler builds in only metadata and subtitle addons — Cinemeta and Anime Kitsu (metadata) and OpenSubtitles v3 (subtitles) — from manifest snapshots compiled into the app (`src-tauri/builtin/`), each switchable in Settings → Content. A test fails the build if a built-in declares a `stream` resource. Stream addons are installed only by the user, behind a confirmation dialog showing the live manifest (name, version, resources, p2p/adult hints): from a pasted URL, an opt-in `stremio://` link, or the opt-in addon directory. |
 | Addon directory | Opt-in browsing of third-party listings (stremio-addons.net, Stremio's `addon_catalog`) | Zeiler curates, ranks and seeds nothing: no featured rails, no recommendations, no bundled list; the only orderings are the directory's own stars, listing date, or name. Every listing is labelled "not reviewed by Zeiler"; adult listings are hidden unless `showAdult`; every install goes through the confirmation dialog, which fetches the live manifest and shows where it differs from the listing. Nothing is fetched before `marketplaceEnabled`. |
 | Stremio account | Opt-in, per profile; link-code sign-in first, password second; the key in the OS keychain | Off until a profile signs in. Hand-rolled client of the account API (`zeiler-sync`, stremio-core's request shapes, an honest `Zeiler/<version>` user agent); never the telemetry or premium endpoints (events, seekLog, getSkipGaps, …). See "Account sync". |
-| Updates | tauri-plugin-updater, install on next launch | Signed (minisign) packages from `releases/latest/download/latest.json`; releases are therefore regular, not pre-releases. Checked at launch (installed immediately, before the user starts anything) and every 6 h (downloaded to the cache, installed on the next launch). Signing key: `TAURI_SIGNING_PRIVATE_KEY` secret; release builds pass `--config src-tauri/tauri.release.conf.json` to emit updater artifacts. Dev builds never self-update. |
+| Updates | tauri-plugin-updater, install on next launch | Signed (minisign) packages from `releases/latest/download/latest.json`; releases are therefore regular, not pre-releases. Checked at launch (installed immediately, before the user starts anything) and every 6 h (downloaded to the cache, installed on the next launch). A downloaded update opens a dialog with Restart and update / Later; Later quiets that version until the next launch, and a manual check emits the same ready event. Signing key: `TAURI_SIGNING_PRIVATE_KEY` secret; release builds pass `--config src-tauri/tauri.release.conf.json` to emit updater artifacts. Dev builds never self-update. |
 
 ## Workspace layout
 
@@ -179,6 +179,14 @@ backend setting says.
   gone. `instantPlay`, which nothing ever read, is superseded: a new key, because every
   settings file written so far stores `instantPlay: false`, so changing its default
   would not have switched it on.
+- **Responsive and installable web shells** (`src/chrome/`, `public/`). Wide viewports use
+  top navigation; smaller ones use bottom navigation with a More sheet for every other
+  destination. Home and title details lead with full-width artwork, and rails, search,
+  episodes and player controls adapt to touch layouts without dropping actions. The PWA
+  manifest, icons and service worker cache the same-origin application shell for offline
+  launches. A production browser renders `WebShell` instead of mounting native IPC:
+  catalogs, accounts and playback still require the desktop app. Dev browser smoke tests
+  keep the full UI, and Tauri builds always use the full application.
 - **App stays mounted** (`src/main.tsx`). The Player renders next to the app shell, which
   stays mounted but hidden (`display:none` + `inert`), so the view stack, the picker's
   stream list and its scroll offsets survive playback and Back (`history.back`) returns

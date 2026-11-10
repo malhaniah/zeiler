@@ -1,13 +1,18 @@
 import { ArrowLeft, Search } from "lucide-react";
 import { useEffect } from "react";
+import zeilerLogo from "../assets/zeiler-logo-white.png";
 import { playerActive } from "../lib/playback-handoff";
-import { useSearch } from "../lib/store";
+import { useSearch, useSettings } from "../lib/store";
 import { useView } from "../lib/view";
+import { ProfileChip } from "../views/profiles/ProfileChip";
 import { WindowControls } from "./WindowControls";
+import { primaryNavigation, secondaryNavigation } from "./navigation";
 
 export function Topbar() {
-  const { canGoBack, goBack, top } = useView();
+  const { canGoBack, goBack, top, view, setView } = useView();
   const { setOpen } = useSearch();
+  const { settings } = useSettings();
+  const primary = primaryNavigation(settings?.hideAnime, settings?.hideLiveTv);
 
   // "/" opens search anywhere (except while typing, or under the Player screen, where
   // the shell is hidden and the overlay would steal the player's keyboard focus)
@@ -31,37 +36,78 @@ export function Topbar() {
   if (top.kind === "picker") return null;
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-[55] h-20">
+    <header className="fixed left-0 right-0 top-0 z-[55] h-16 sm:h-20">
       <div
         data-tauri-drag-region
-        className="relative z-10 grid h-full grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 sm:px-8"
+        className="relative z-10 flex h-full items-center gap-2 px-3 sm:gap-3 sm:px-6 lg:px-8"
       >
-        <div className="flex items-center pl-[72px] lg:pl-[244px]" data-tauri-drag-region>
-          {canGoBack && (
-            <button
-              onClick={goBack}
-              className="flex h-10 shrink-0 items-center gap-2 rounded-full border border-edge-soft/60 bg-canvas/85 pl-3 pr-5 text-[13.5px] font-medium text-ink-muted transition-colors hover:bg-canvas hover:text-ink"
-            >
-              <ArrowLeft size={15} />
-              Back
-            </button>
-          )}
-        </div>
-
+        {canGoBack && (
+          <button
+            aria-label="Back"
+            onClick={goBack}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-edge-soft/60 bg-canvas/85 text-ink-muted transition-colors hover:bg-canvas hover:text-ink"
+          >
+            <ArrowLeft size={17} />
+          </button>
+        )}
         <button
-          onClick={() => setOpen(true)}
-          className="flex h-11 w-[14rem] items-center gap-3 rounded-full border border-edge-soft/60 bg-elevated/80 px-5 text-left opacity-80 transition-[width,opacity,background-color] duration-200 hover:bg-elevated hover:opacity-100 sm:w-[20rem] sm:hover:w-[24rem] lg:w-[24rem] lg:hover:w-[28rem] xl:w-[28rem] xl:hover:w-[34rem]"
+          aria-label="Zeiler home"
+          onClick={() => setView("home")}
+          className="flex shrink-0 items-center gap-2 text-ink"
         >
-          <Search size={16} className="shrink-0 text-ink-subtle" />
-          <span className="flex-1 truncate text-[14px] text-ink-subtle">
-            Search movies, shows…
+          <img src={zeilerLogo} alt="" className="h-9 w-9 sm:h-10 sm:w-10" />
+          <span className="hidden font-display text-[27px] font-medium tracking-tight sm:inline">
+            Zeiler
           </span>
-          <kbd className="hidden shrink-0 rounded-md border border-edge-soft bg-canvas/50 px-1.5 py-0.5 font-mono text-[10.5px] font-medium text-ink-subtle sm:inline">
-            /
-          </kbd>
         </button>
 
-        <div className="flex items-center justify-end gap-1.5">
+        <nav aria-label="Main navigation" className="ml-5 hidden items-center gap-1 xl:flex">
+          {primary.map((entry) => (
+            <button
+              key={entry.view}
+              aria-current={view === entry.view ? "page" : undefined}
+              onClick={() => setView(entry.view)}
+              className={`border-b-2 px-2.5 py-3 text-[13px] font-medium transition-colors ${
+                view === entry.view
+                  ? "border-accent text-ink"
+                  : "border-transparent text-ink-muted hover:text-ink"
+              }`}
+            >
+              {entry.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="flex-1" data-tauri-drag-region />
+        <button
+          aria-label="Search movies and shows"
+          onClick={() => setOpen(true)}
+          className="flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full border border-edge-soft/60 bg-canvas/70 text-ink-subtle transition-colors hover:bg-elevated hover:text-ink 2xl:w-60 2xl:justify-start 2xl:px-4"
+        >
+          <Search size={17} className="shrink-0" />
+          <span className="hidden flex-1 text-left text-[13px] 2xl:inline">Search movies, shows…</span>
+          <kbd className="hidden rounded border border-edge-soft px-1 font-mono text-[10px] 2xl:inline">/</kbd>
+        </button>
+        <div className="hidden items-center gap-1 lg:flex">
+          {secondaryNavigation.map((entry) => {
+            const Icon = entry.icon;
+            return (
+              <button
+                key={entry.view}
+                aria-label={entry.label}
+                title={entry.label}
+                onClick={() => setView(entry.view)}
+                className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
+                  view === entry.view ? "bg-elevated text-ink" : "text-ink-muted hover:bg-elevated/70 hover:text-ink"
+                }`}
+              >
+                <Icon size={18} />
+              </button>
+            );
+          })}
+        </div>
+        <ProfileChip compact />
+        <div className="hidden sm:block">
           <WindowControls />
         </div>
       </div>

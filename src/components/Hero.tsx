@@ -39,7 +39,7 @@ export function HeroCarousel({
         className={
           variant === "card"
             ? "min-h-[560px] animate-pulse rounded-[28px] border border-edge-soft bg-elevated/30"
-            : "h-[72vh] min-h-[560px] animate-pulse bg-elevated/30"
+            : "h-[76svh] min-h-[540px] animate-pulse bg-elevated/30 sm:h-[78vh] sm:min-h-[640px]"
         }
       />
     );
@@ -48,7 +48,7 @@ export function HeroCarousel({
   const shell =
     variant === "card"
       ? "group relative h-[560px] cursor-pointer overflow-hidden rounded-[28px] bg-canvas"
-      : "group relative h-[78vh] min-h-[640px] cursor-pointer overflow-hidden bg-canvas";
+      : "group relative h-[76svh] min-h-[540px] cursor-pointer overflow-hidden bg-canvas sm:h-[78vh] sm:min-h-[640px]";
 
   return (
     <div className="flex flex-col gap-4">
@@ -110,34 +110,44 @@ function Slide({
         <div className="absolute inset-0" style={{ background: fallbackGradient(meta.id) }} />
       )}
       <div className="absolute inset-0 bg-gradient-to-r from-canvas via-canvas/85 via-50% to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-canvas via-canvas/70 via-50% to-transparent" />
+      <div
+        className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-canvas via-canvas/70 via-50% to-transparent ${
+          variant === "card" ? "h-2/5" : "h-2/3 sm:h-2/5"
+        }`}
+      />
 
-      <div className={`relative flex h-full flex-col justify-center ${variant === "card" ? "p-14" : "justify-end pb-24 pl-20 pr-20"}`}>
+      <div
+        className={`relative flex h-full flex-col justify-center ${
+          variant === "card"
+            ? "p-14"
+            : "justify-end px-5 pb-16 sm:px-12 sm:pb-20 lg:px-20 lg:pb-24"
+        }`}
+      >
         <div className="max-w-2xl">
-          <div className="mb-5 inline-flex items-center gap-1.5 rounded-md bg-canvas/85 px-2.5 py-1 text-[12px] font-semibold text-ink">
+          <div className="mb-4 inline-flex items-center gap-1.5 rounded-md bg-canvas/85 px-2.5 py-1 text-[11px] font-semibold text-ink sm:mb-5 sm:text-[12px]">
             <TrendingUp size={13} className="text-accent" />
             #{rank} in {typeLabel} Today
           </div>
-          <div className="flex min-h-[112px] items-end">
+          <div className="flex min-h-[88px] items-end sm:min-h-[112px]">
             {meta.logo && logoOk ? (
               <img
                 src={meta.logo}
                 alt={meta.name}
                 onError={() => setLogoOk(false)}
-                className="max-h-[120px] max-w-[460px] object-contain object-left drop-shadow-[0_6px_22px_rgba(0,0,0,0.45)]"
+                className="max-h-[88px] max-w-[85%] object-contain object-left drop-shadow-[0_6px_22px_rgba(0,0,0,0.45)] sm:max-h-[120px] sm:max-w-[460px]"
               />
             ) : (
-              <h1 className="font-display text-[56px] font-medium leading-[0.98] tracking-tight text-ink lg:text-[68px]">
+              <h1 className="font-display text-[42px] font-medium leading-[0.98] tracking-tight text-ink sm:text-[56px] lg:text-[68px]">
                 {meta.name}
               </h1>
             )}
           </div>
           {meta.description && (
-            <p className="mt-6 line-clamp-3 max-w-xl text-[16px] leading-relaxed text-ink-muted">
+            <p className="mt-4 line-clamp-2 max-w-xl text-[14px] leading-relaxed text-ink-muted sm:mt-6 sm:line-clamp-3 sm:text-[16px]">
               {meta.description}
             </p>
           )}
-          <div className="mt-6 flex flex-wrap gap-x-8 text-[14px]">
+          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-[12px] sm:mt-6 sm:gap-x-8 sm:text-[14px]">
             {meta.releaseInfo && (
               <span>
                 <span className="text-ink-subtle">Year: </span>
@@ -156,7 +166,7 @@ function Slide({
               <span className="text-ink-subtle">{meta.genres.slice(0, 3).join(" · ")}</span>
             )}
           </div>
-          <div className="mt-9 flex gap-3">
+          <div className="mt-6 flex gap-3 sm:mt-9">
             <button
               onClick={(e) => {
                 e.stopPropagation();

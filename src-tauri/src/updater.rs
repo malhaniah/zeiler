@@ -158,7 +158,8 @@ pub async fn update_status(app: AppHandle) -> Result<UpdateStatus, IpcError> {
     Ok(UpdateStatus { current, ready })
 }
 
-/// Check now; downloads the update if there is one. Returns its version.
+/// Check now; downloads the update if there is one, tells the UI it is ready, and
+/// returns its version.
 #[tauri::command]
 pub async fn update_check(app: AppHandle) -> Result<Option<String>, IpcError> {
     updates_disabled_in_dev()?;
@@ -171,7 +172,9 @@ pub async fn update_check(app: AppHandle) -> Result<Option<String>, IpcError> {
     ensure_downloaded(&app, &update)
         .await
         .map_err(|e| IpcError::Storage(format!("couldn't download the update: {e:#}")))?;
-    Ok(Some(update.version.clone()))
+    let version = update.version.clone();
+    let _ = app.emit("update://ready", &version);
+    Ok(Some(version))
 }
 
 /// Install the available update now and restart.
