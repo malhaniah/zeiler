@@ -208,7 +208,8 @@ function PlayerSession({ launch: launched, launchId }: { launch: PlayerLaunch; l
   }, [sendGeometry, backend]);
 
   // Window changes (fullscreen, resize, move, DPI) can unsettle the native surface
-  // for a moment: re-assert it on a short schedule after each (surface-sync.ts).
+  // for a moment: re-assert it on a short schedule (after moves settle) instead of
+  // redrawing and refocusing the native surface throughout a drag (surface-sync.ts).
   const kickSurface = useSurfaceSync(backend === "embedded", sendGeometry);
 
   // Tell the screen that opened this launch (the stream picker) that it failed, once.

@@ -196,9 +196,11 @@ backend setting says.
     (`PlayerChrome.tsx`); `f` makes the Zeiler window fullscreen, Escape leaves
     fullscreen first (and the player only when not fullscreen), and leaving the
     player screen any other way ends fullscreen too. After a fullscreen
-    toggle and on every window resize, move and scale change the page re-sends the
+    toggle and on every window resize and scale change the page re-sends the
     video rect and calls `player_surface_refresh` on a kick schedule (0, 60, 200,
-    500, 1000, 2000 ms; `surface-sync.ts`). On Windows the main window is subclassed
+    500, 1000, 2000 ms; `surface-sync.ts`). Moves start that schedule only after the
+    window has stayed put for 150 ms, avoiding native redraws and focus changes on
+    every mouse-move event during a drag. On Windows the main window is subclassed
     at setup so a fullscreen window's client area is the whole window: tao 0.37.1
     otherwise trims a maximized undecorated window to the work area also while
     fullscreen, leaving the page and video short by the taskbar
