@@ -59,6 +59,8 @@ export interface AutoSkipped {
 }
 
 export interface SkipControls {
+  /** every known intro, recap and credits range, for the seek bar */
+  segments: SkipSegment[];
   /** the segment playing now, when the Skip button may show */
   offer: SkipOffer | null;
   skip: () => void;
@@ -246,6 +248,7 @@ export function useSkip({
   }, [external, subscribeEvents, skip]);
 
   return {
+    segments,
     offer,
     skip,
     skipped,

@@ -1,5 +1,6 @@
 /**
- * The next episode, for the Up Next card, the "Next Episode" pill and the n / p keys.
+ * Episode navigation for the Up Next card, the "Next Episode" pill, the n / p keys and
+ * the right-hand drawer (any episode, with the same stream-selection rules).
  *
  * - **Which.** The video after the current one in the title's order (lib/next-video.ts:
  *   Stremio's rules — released, no jump into the specials).
@@ -20,7 +21,7 @@
  * THIRD-PARTY-NOTICES.md), reduced to the end of the file.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { bingeCandidate, type BingeCandidate, nextVideo, previousVideo } from "../../lib/next-video";
+import { bingeCandidate, type BingeCandidate, metaOrder, nextVideo, previousVideo } from "../../lib/next-video";
 import {
   launchForVideo,
   leavePlayer,
@@ -47,6 +48,12 @@ export interface NextEpisode {
 
 export interface NextEpisodeControls {
   next: NextEpisode | null;
+  /** the title's episodes in Stremio's order, for the player drawer */
+  episodes: Video[];
+  currentEpisodeId: string | null;
+  /** the episode whose stream is being found (null: none) */
+  pendingEpisodeId: string | null;
+  playEpisode: (video: Video) => void;
   /** the Up Next card is up (the last seconds, or the episode ended) */
   upNext: boolean;
   /** seconds until the next episode plays by itself (null: it will not) */
@@ -92,17 +99,25 @@ export function useNextEpisode({
     () => (meta && current && !launch.live ? previousVideo(meta.videos, current.id) : null),
     [meta, current, launch.live],
   );
+  const episodes = useMemo(
+    () => (meta && current && !launch.live && !foreign ? metaOrder(meta.videos) : []),
+    [meta, current, launch.live, foreign],
+  );
 
   // the next episode's stream, per launch (a new episode asks again)
   const [stream, setStream] = useState<NextEpisode["stream"]>({ state: "unknown" });
   const [dismissed, setDismissed] = useState(false);
   // play once the streams are known (Play now was pressed while still asking)
   const [wanted, setWanted] = useState(false);
+  const [pendingEpisodeId, setPendingEpisodeId] = useState<string | null>(null);
+  const episodeRequest = useRef(0);
   const asking = useRef<PlayerLaunch | null>(null);
   useEffect(() => {
     setStream({ state: "unknown" });
     setDismissed(false);
     setWanted(false);
+    episodeRequest.current++;
+    setPendingEpisodeId(null);
     asking.current = null;
   }, [launch]);
 
@@ -169,15 +184,34 @@ export function useNextEpisode({
     [launch, meta, loadNext],
   );
 
+  const playEpisode = useCallback(
+    (target: Video) => {
+      if (foreign || pendingEpisodeId || target.id === current?.id) return;
+      const mine = ++episodeRequest.current;
+      setDismissed(true);
+      setWanted(false);
+      setPendingEpisodeId(target.id);
+      void findStream(target)
+        .catch(() => null)
+        .then((candidate) => {
+          if (mine === episodeRequest.current) go(target, candidate);
+        })
+        .finally(() => {
+          if (mine === episodeRequest.current) setPendingEpisodeId(null);
+        });
+    },
+    [foreign, pendingEpisodeId, current?.id, findStream, go],
+  );
+
   const playNext = useCallback(() => {
-    if (!video || foreign) return;
+    if (!video || foreign || pendingEpisodeId) return;
     if (stream.state === "found") go(video, stream.candidate);
     else if (stream.state === "none") go(video, null);
     else {
       setWanted(true);
       prefetch();
     }
-  }, [video, foreign, stream, go, prefetch]);
+  }, [video, foreign, pendingEpisodeId, stream, go, prefetch]);
 
   useEffect(() => {
     if (!wanted || !video) return;
@@ -238,6 +272,10 @@ export function useNextEpisode({
 
   return {
     next: video && !foreign ? { video, stream } : null,
+    episodes,
+    currentEpisodeId: current?.id ?? null,
+    pendingEpisodeId,
+    playEpisode,
     upNext,
     countdown,
     playNext,

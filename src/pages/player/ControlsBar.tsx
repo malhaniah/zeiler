@@ -1,6 +1,7 @@
 /**
  * The bottom control bar of the Player screen, for both backends: seek bar (with the
- * buffered range), play/pause, time, volume and mute, the streams menu (StreamsMenu:
+ * buffered range, skip-segment highlights and chapters), play/pause, time, volume and
+ * mute, the streams menu (StreamsMenu:
  * the video's other streams), the audio and subtitle menus (AudioMenu, SubtitleMenu:
  * tracks, sources, delays, quick style), playback speed,
  * fullscreen and — for an external mpv window — Stop. Position-driven
@@ -10,6 +11,7 @@
 import { Maximize, Pause, Play, RotateCcw, Square, Volume2, VolumeX } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { type MpvChapter, playerCommand, playerSetProperty } from "../../lib/player-ipc";
+import { segmentLabel, type SkipSegment } from "../../lib/skip";
 import { AudioMenu } from "./AudioMenu";
 import { chip, MenuRow, PopupMenu } from "./menu";
 import { formatTime, type MpvState } from "./mpv-state";
@@ -28,6 +30,7 @@ export function ControlsBar({
   mpv,
   tracks,
   streams,
+  skipSegments,
   controls,
   shown,
   onPoke,
@@ -43,6 +46,8 @@ export function ControlsBar({
   tracks: Tracks;
   /** the video's other streams (null: none to switch to, e.g. live TV) */
   streams: StreamSwitch | null;
+  /** intro, recap and credits ranges to highlight on the seek bar */
+  skipSegments: SkipSegment[];
   controls: PlayerControls;
   shown: boolean;
   onPoke: () => void;
@@ -63,7 +68,7 @@ export function ControlsBar({
       }`}
     >
       {tracks.notice && <Notice text={tracks.notice} onDismiss={tracks.dismissNotice} />}
-      {!live && <SeekBar clock={clock} chapters={mpv.chapters} onPoke={onPoke} />}
+      {!live && <SeekBar clock={clock} chapters={mpv.chapters} segments={skipSegments} onPoke={onPoke} />}
       <div className="flex items-center gap-3">
         <PlayPauseButton clock={clock} ended={ended} onClick={controls.togglePauseOrReplay} />
         {live ? <LiveBadge /> : <TimeReadout clock={clock} />}
@@ -154,15 +159,17 @@ function TimeReadout({ clock }: { clock: PlaybackClock }) {
   );
 }
 
-/** Seek slider over a track that shows what is played and what is buffered, with a tick
- * at each chapter; hovering shows the time there and its chapter's title. */
+/** Seek slider over a track that shows what is played and what is buffered, highlights
+ * skip segments and marks chapters; hovering names the segment or chapter there. */
 function SeekBar({
   clock,
   chapters,
+  segments,
   onPoke,
 }: {
   clock: PlaybackClock;
   chapters: MpvChapter[];
+  segments: SkipSegment[];
   onPoke: () => void;
 }) {
   const timePos = useClock(clock, (s) => s.timePos);
@@ -174,8 +181,12 @@ function SeekBar({
   const pct = (t: number) => `${Math.min(100, Math.max(0, (t / max) * 100))}%`;
   const [hover, setHover] = useState<number | null>(null);
   const ticks = duration > 0 ? chapters.filter((c) => c.time > 0.5 && c.time < duration - 0.5) : [];
+  const hoverSegment =
+    hover === null ? null : segments.find((s) => s.startSec <= hover && hover < s.endSec) ?? null;
   const hoverChapter =
-    hover === null ? null : [...chapters].reverse().find((c) => c.time <= hover)?.title?.trim() || null;
+    hover === null || hoverSegment
+      ? null
+      : [...chapters].reverse().find((c) => c.time <= hover)?.title?.trim() || null;
   return (
     <div
       className="relative flex h-3 items-center"
@@ -192,6 +203,9 @@ function SeekBar({
           style={{ left: pct(hover) }}
         >
           {formatTime(hover)}
+          {hoverSegment && (
+            <span className="capitalize text-accent"> · {segmentLabel(hoverSegment.kind)}</span>
+          )}
           {hoverChapter && <span className="text-ink-muted"> · {hoverChapter}</span>}
         </div>
       )}
@@ -204,6 +218,18 @@ function SeekBar({
           />
         )}
         <div className="absolute inset-y-0 left-0 bg-accent" style={{ width: pct(value) }} />
+        {duration > 0 &&
+          segments.map((segment) => (
+            <div
+              key={`${segment.kind}-${segment.startSec}-${segment.endSec}`}
+              className="pointer-events-none absolute inset-y-0 border-x border-canvas/60"
+              style={{
+                left: pct(segment.startSec),
+                width: pct(segment.endSec - segment.startSec),
+                background: "oklch(0.88 0.16 90 / 0.72)",
+              }}
+            />
+          ))}
       </div>
       {ticks.map((c, i) => (
         <div

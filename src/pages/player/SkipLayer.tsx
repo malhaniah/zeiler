@@ -54,7 +54,11 @@ export function SkipLayer({
       )}
       {pill && (
         <button
-          className="pointer-events-auto flex animate-step-in items-center gap-2 rounded-lg border border-edge bg-surface/95 px-5 py-3 text-sm font-semibold text-ink shadow-xl transition-colors hover:bg-elevated"
+          className={`pointer-events-auto flex animate-step-in items-center gap-2 rounded-lg border px-5 py-3 text-sm font-semibold shadow-xl transition-colors ${
+            pill.segment.kind === "intro"
+              ? "border-accent bg-accent text-canvas hover:bg-accent/90"
+              : "border-edge bg-surface/95 text-ink hover:bg-elevated"
+          }`}
           onClick={skip.skip}
           title="Enter"
         >
