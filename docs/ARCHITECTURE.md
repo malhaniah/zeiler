@@ -395,13 +395,18 @@ run `sub-add` (see "Validation policy").
   file, only when playback enters it by playing on (never after a seek), only for
   AniSkip/TheIntroDB segments or a chapter named exactly for it, never the synthetic
   credits, with an Undo toast for 5 s; credits skipped by themselves play the next
-  episode when there is one. An online answer arrives after playback started, so a
-  segment it brings counts as entered while playback is in its first 10 s, unless the
-  user seeked in the file. With external mpv the offer also shows in
-  mpv's window (`player_osd_prompt`: `show-text`, and Enter bound in a forced input
-  section of its own that sends `script-message zeiler-skip`, back as a
-  `client-message`; disabling the section restores the user's binding).
-- **Next episode** (`useNextEpisode.ts`, `src/lib/next-video.ts`). The video after the
+  episode when there is one. Every known segment is highlighted on either screen's seek
+  bar, and the hover timestamp names it; the active intro's Skip pill is accented. An
+  online answer arrives after playback started, so a segment it brings counts as entered
+  while playback is in its first 10 s, unless the user seeked in the file. With external
+  mpv the offer also shows in mpv's window (`player_osd_prompt`: `show-text`, and Enter
+  bound in a forced input section of its own that sends `script-message zeiler-skip`,
+  back as a `client-message`; disabling the section restores the user's binding).
+- **Episode drawer and next episode** (`EpisodeSidebar.tsx`, `useNextEpisode.ts`,
+  `src/lib/next-video.ts`). A right-edge arrow opens the title's episodes, grouped by
+  season with the current one marked and upcoming ones disabled. Picking one uses the
+  same stream-selection and in-place load as Next; Escape closes only the drawer. The
+  video after the
   current one by stremio-core's order and `next_video` rules (the same as
   `zeiler_account::next_video_id`). In the last 90 s (or when the credits start, or on
   n), the addons are asked for its streams; a stream from the same addon (or the meta's

@@ -19,6 +19,7 @@ import { ControlsBar } from "./ControlsBar";
 import type { Backend, MpvState, Phase } from "./mpv-state";
 import type { StreamSwitch } from "./useStreamSwitch";
 import type { Tracks } from "./useTracks";
+import type { SkipSegment } from "../../lib/skip";
 import { type PlaybackClock, useClock } from "./playback-clock";
 import { BackButton, ChooseStreamButton, CenterCard, ClosedCard, NextButton, Spinner } from "./states";
 import { TorrentStats } from "./TorrentStats";
@@ -31,6 +32,7 @@ export function PlayerChrome({
   mpv,
   tracks,
   streams,
+  skipSegments,
   clock,
   notice,
   dismissNotice,
@@ -51,6 +53,7 @@ export function PlayerChrome({
   tracks: Tracks;
   /** the video's other streams, for the Streams menu */
   streams: StreamSwitch | null;
+  skipSegments: SkipSegment[];
   clock: PlaybackClock;
   notice: string | null;
   dismissNotice: () => void;
@@ -217,9 +220,11 @@ export function PlayerChrome({
         </button>
       )}
 
-      {/* top bar (the screen covers the shell's title bar, so the window controls are
-          here too; no drag area: it would fight the double-click for fullscreen) */}
+      {/* top bar (the screen covers the shell's title bar, so the window controls and
+          a drag region are here too; double-click fullscreen stays on the video) */}
       <div
+        data-tauri-drag-region
+        onDoubleClick={(e) => e.stopPropagation()}
         className={`absolute inset-x-0 top-0 flex items-center gap-3 bg-gradient-to-b from-canvas/85 to-transparent px-4 pb-8 pt-3 transition-opacity duration-300 ${
           controlsShown ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
@@ -243,6 +248,7 @@ export function PlayerChrome({
           mpv={mpv}
           tracks={tracks}
           streams={streams}
+          skipSegments={skipSegments}
           controls={controls}
           shown={controlsShown}
           onPoke={poke}

@@ -30,8 +30,9 @@
  * window changes), TorrentStats.tsx, useTracks.ts (subtitles and audio: sources, the
  * automatic pick, per-title choices), SubtitleMenu.tsx, AudioMenu.tsx, menu.tsx,
  * useSkip.ts (intro/recap/credits: where, Skip, by itself with Undo), useNextEpisode.ts
- * (the next episode: binge stream, Up Next, by itself), SkipLayer.tsx (their pill,
- * card, toast and keys, over either screen), useStreamSwitch.ts and StreamsMenu.tsx (the
+ * (episode navigation: binge stream, Up Next, by itself), EpisodeSidebar.tsx (the
+ * right-hand episode drawer), SkipLayer.tsx (the skip pill, card, toast and keys, over
+ * either screen), useStreamSwitch.ts and StreamsMenu.tsx (the
  * video's other streams, switched to in place), StatsOverlay.tsx (key i), QualityMenu.tsx
  * (HLS variants).
  *
@@ -48,6 +49,7 @@ import {
 } from "../../lib/playback-handoff";
 import { playerSetGeometry, playerStop, settingsGet } from "../../lib/player-ipc";
 import type { SkipSettings } from "../../lib/types";
+import { EpisodeSidebar } from "./EpisodeSidebar";
 import { ExternalRemote } from "./ExternalRemote";
 import { launchForRoute, launchIdForRoute, releaseRoute } from "./launch";
 import { LiveContext } from "./live";
@@ -261,6 +263,7 @@ function PlayerSession({ launch: launched, launchId }: { launch: PlayerLaunch; l
   const layer = controllable && (
     <>
       <SkipLayer skip={skip} next={next} upNextSeconds={upNextSeconds} keys={controllable} />
+      <EpisodeSidebar series={launch.meta?.name ?? "Episodes"} next={next} />
       {stats && <StatsOverlay mpv={mpv} onClose={closeStats} />}
     </>
   );
@@ -287,6 +290,7 @@ function PlayerSession({ launch: launched, launchId }: { launch: PlayerLaunch; l
           mpv={mpv}
           tracks={tracks}
           streams={streams}
+          skipSegments={skip.segments}
           clock={clock}
           notice={session.notice}
           dismissNotice={session.dismissNotice}
@@ -314,6 +318,7 @@ function PlayerSession({ launch: launched, launchId }: { launch: PlayerLaunch; l
         mpv={mpv}
         tracks={tracks}
         streams={streams}
+        skipSegments={skip.segments}
         clock={clock}
         notice={session.notice}
         dismissNotice={session.dismissNotice}

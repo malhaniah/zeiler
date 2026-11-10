@@ -18,6 +18,7 @@ import { WindowControls } from "../../chrome/WindowControls";
 import { CopyField } from "../../components/ui";
 import type { PlayerLaunch } from "../../lib/playback-handoff";
 import { playerCommand } from "../../lib/player-ipc";
+import type { SkipSegment } from "../../lib/skip";
 import { ControlsBar } from "./ControlsBar";
 import type { MpvState, Phase } from "./mpv-state";
 import type { StreamSwitch } from "./useStreamSwitch";
@@ -48,6 +49,7 @@ export function ExternalRemote({
   mpv,
   tracks,
   streams,
+  skipSegments,
   clock,
   notice,
   dismissNotice,
@@ -66,6 +68,7 @@ export function ExternalRemote({
   tracks: Tracks;
   /** the video's other streams, for the Streams menu */
   streams: StreamSwitch | null;
+  skipSegments: SkipSegment[];
   clock: PlaybackClock;
   notice: string | null;
   dismissNotice: () => void;
@@ -226,6 +229,7 @@ export function ExternalRemote({
           mpv={mpv}
           tracks={tracks}
           streams={streams}
+          skipSegments={skipSegments}
           controls={controls}
           shown
           onPoke={noop}
