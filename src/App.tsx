@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { SearchOverlay } from "./chrome/SearchOverlay";
 import { Sidebar } from "./chrome/Sidebar";
 import { Topbar } from "./chrome/Topbar";
-import { UpdateBanner } from "./chrome/UpdateBanner";
+import { UpdatePrompt } from "./chrome/UpdatePrompt";
 import { LibraryProvider } from "./lib/library";
 import { subscribePickerRequests } from "./lib/playback-handoff";
 import { ProfilesProvider } from "./lib/profiles";
@@ -87,7 +87,7 @@ function Shell() {
       </div>
       <Topbar />
       <SearchOverlay />
-      <UpdateBanner />
+      <UpdatePrompt />
       <InstallHost />
       <ProfilePicker
         onManage={() => {

@@ -748,7 +748,7 @@ function UpdatesCard() {
     <SectionCard title="Updates" description="Signed updates from GitHub releases. Installs happen when you open Zeiler, never mid-movie.">
       <ToggleRow
         label="Install updates automatically"
-        sub="Checks at launch and every few hours; a downloaded update installs the next time you open Zeiler."
+        sub="Checks at launch and every 6 hours; prompts when a download is ready and installs it the next time you open Zeiler."
         on={settings.autoUpdate}
         onChange={(on) => void save({ autoUpdate: on })}
       />
