@@ -179,6 +179,14 @@ backend setting says.
   gone. `instantPlay`, which nothing ever read, is superseded: a new key, because every
   settings file written so far stores `instantPlay: false`, so changing its default
   would not have switched it on.
+- **Responsive and installable web shells** (`src/chrome/`, `public/`). Wide viewports use
+  top navigation; smaller ones use bottom navigation with a More sheet for every other
+  destination. Home and title details lead with full-width artwork, and rails, search,
+  episodes and player controls adapt to touch layouts without dropping actions. The PWA
+  manifest, icons and service worker cache the same-origin application shell for offline
+  launches. A production browser renders `WebShell` instead of mounting native IPC:
+  catalogs, accounts and playback still require the desktop app. Dev browser smoke tests
+  keep the full UI, and Tauri builds always use the full application.
 - **App stays mounted** (`src/main.tsx`). The Player renders next to the app shell, which
   stays mounted but hidden (`display:none` + `inert`), so the view stack, the picker's
   stream list and its scroll offsets survive playback and Back (`history.back`) returns

@@ -204,7 +204,7 @@ export function DetailView({
     <main className="absolute inset-0 z-30 overflow-y-auto bg-canvas">
       {/* hero */}
       <section className="relative">
-        <div className="relative h-[78vh] min-h-[640px] overflow-hidden">
+        <div className="relative h-[76svh] min-h-[540px] overflow-hidden sm:h-[78vh] sm:min-h-[640px]">
           {backdrop ? (
             <img src={backdrop} alt="" className="absolute inset-0 h-full w-full object-cover" />
           ) : (
@@ -213,24 +213,24 @@ export function DetailView({
           <div className="absolute inset-0 bg-gradient-to-t from-canvas via-canvas/55 via-45% to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-r from-canvas/85 via-canvas/35 to-transparent" />
 
-          <div className="absolute inset-x-0 bottom-0 px-12 pb-14">
+          <div className="absolute inset-x-0 bottom-0 px-5 pb-10 sm:px-12 sm:pb-14">
             <div className="max-w-3xl">
-              <div className="relative flex min-h-[120px] flex-col justify-end">
+              <div className="relative flex min-h-[96px] flex-col justify-end sm:min-h-[120px]">
                 {meta.logo && logoOk ? (
                   <img
                     src={meta.logo}
                     alt={meta.name}
                     onError={() => setLogoOk(false)}
-                    className="max-h-[124px] max-w-[440px] object-contain object-left drop-shadow-[0_6px_24px_rgba(0,0,0,0.45)]"
+                    className="max-h-[96px] max-w-[85%] object-contain object-left drop-shadow-[0_6px_24px_rgba(0,0,0,0.45)] sm:max-h-[124px] sm:max-w-[440px]"
                   />
                 ) : (
-                  <h1 className="font-display text-[56px] font-medium leading-[0.95] tracking-tight text-ink lg:text-[80px]">
+                  <h1 className="font-display text-[42px] font-medium leading-[0.95] tracking-tight text-ink sm:text-[56px] lg:text-[80px]">
                     {meta.name}
                   </h1>
                 )}
               </div>
 
-              <div className="mt-6 flex flex-wrap items-center gap-3 text-[13px] font-medium text-ink-muted">
+              <div className="mt-5 flex flex-wrap items-center gap-2.5 text-[12px] font-medium text-ink-muted sm:mt-6 sm:gap-3 sm:text-[13px]">
                 {meta.releaseInfo && <Pill>{meta.releaseInfo}</Pill>}
                 {meta.imdbRating && (
                   <Pill>
@@ -246,7 +246,7 @@ export function DetailView({
                 ))}
               </div>
 
-              <div className="mt-9 flex flex-wrap gap-3">
+              <div className="mt-7 flex flex-wrap gap-3 sm:mt-9">
                 <PlayButton
                   label={playLabel(
                     resumes ? "Resume" : continueVideo ? "Continue" : "Play",
@@ -299,7 +299,7 @@ export function DetailView({
       </section>
 
       {/* body */}
-      <div className="flex flex-col gap-16 px-12 pb-24 pt-14">
+      <div className="flex flex-col gap-10 px-5 pb-20 pt-10 sm:gap-16 sm:px-12 sm:pb-24 sm:pt-14">
         {fallbackNote && (
           <div className="flex max-w-3xl items-start gap-3 rounded-2xl border border-edge-soft bg-elevated/40 px-5 py-4 text-[13.5px] leading-relaxed text-ink-muted">
             <Info size={17} className="mt-0.5 shrink-0 text-accent" />
@@ -781,14 +781,14 @@ function EpisodeRow({
     .join("  ·  ");
 
   return (
-    <div className="group/episode flex items-center gap-2 rounded-2xl pr-4 transition-colors hover:bg-elevated/30">
+    <div className="group/episode flex items-center gap-2 rounded-2xl pr-2 transition-colors hover:bg-elevated/30 sm:pr-4">
       <button
         onClick={onClick}
-        className={`group flex min-w-0 flex-1 gap-6 rounded-2xl px-4 py-5 text-left ${
+        className={`group flex min-w-0 flex-1 gap-3 rounded-2xl px-2 py-3 text-left sm:gap-6 sm:px-4 sm:py-5 ${
           upcoming ? "opacity-55" : ""
         }`}
       >
-        <div className="relative w-[200px] shrink-0 overflow-hidden rounded-lg">
+        <div className="relative w-[112px] shrink-0 overflow-hidden rounded-lg sm:w-[200px]">
           <Poster src={video.thumbnail} seed={video.id} ratio="landscape" className="rounded-lg">
             {progress !== null && <PosterProgress value={progress} />}
           </Poster>
@@ -805,7 +805,7 @@ function EpisodeRow({
         </div>
         <div className="flex min-w-0 flex-col gap-1.5 py-1">
           <div className="flex items-center gap-2.5">
-            <span className="truncate text-[16px] font-semibold text-ink">
+            <span className="truncate text-[14px] font-semibold text-ink sm:text-[16px]">
               {video.title ?? video.id}
             </span>
             {upcoming && (
@@ -816,7 +816,7 @@ function EpisodeRow({
           </div>
           {metaLine && <span className="text-[12px] text-ink-subtle">{metaLine}</span>}
           {video.overview && (
-            <p className="line-clamp-2 text-[13.5px] leading-relaxed text-ink-muted">
+            <p className="line-clamp-2 text-[12px] leading-relaxed text-ink-muted sm:text-[13.5px]">
               {video.overview}
             </p>
           )}

@@ -78,7 +78,7 @@ export function Row({
   if (children.length === 0) return null;
 
   return (
-    <div className="flex min-w-0 flex-col gap-5 pl-[9px]">
+    <div className="flex min-w-0 flex-col gap-4 sm:gap-5">
       {(title || kicker) && (
         <div className="flex flex-col gap-0.5">
           {title && (
@@ -100,7 +100,7 @@ export function Row({
         <div
           ref={trackRef}
           onScroll={onScroll}
-          className="no-scrollbar -m-5 grid grid-flow-col gap-5 overflow-x-auto scroll-pl-5 p-5 [scroll-snap-type:x_mandatory] [&>*]:[scroll-snap-align:start]"
+          className="no-scrollbar -m-5 grid grid-flow-col gap-5 overflow-x-auto scroll-pl-5 p-5 [scroll-snap-type:x_proximity] sm:[scroll-snap-type:x_mandatory] [&>*]:[scroll-snap-align:start]"
           style={{ gridAutoColumns: `${cellWidth}px` }}
         >
           {children}
@@ -123,7 +123,7 @@ function EdgeArrow({
 }) {
   return (
     <div
-      className={`pointer-events-none absolute inset-y-0 z-10 flex w-9 items-center ${
+      className={`pointer-events-none absolute inset-y-0 z-10 hidden w-9 items-center sm:flex ${
         side === "left" ? "right-full justify-end pr-1" : "left-full justify-start pl-1"
       }`}
     >

@@ -89,8 +89,8 @@ export function SearchOverlay() {
 
   return (
     <div className="animate-fade-in fixed inset-0 z-[200] flex flex-col bg-canvas/95 backdrop-blur-xl">
-      <div className="mx-auto mt-16 flex w-full max-w-3xl items-center gap-4 px-8">
-        <div className="flex h-14 flex-1 items-center gap-4 rounded-full border border-edge bg-elevated px-6">
+      <div className="mx-auto mt-4 flex w-full max-w-3xl items-center gap-2 px-4 sm:mt-16 sm:gap-4 sm:px-8">
+        <div className="flex h-12 flex-1 items-center gap-3 rounded-full border border-edge bg-elevated px-4 sm:h-14 sm:gap-4 sm:px-6">
           <Search size={18} className="shrink-0 text-ink-subtle" />
           <input
             ref={inputRef}
@@ -112,7 +112,7 @@ export function SearchOverlay() {
         </button>
       </div>
 
-      <div className="mt-10 flex-1 overflow-y-auto px-12 pb-16">
+      <div className="mt-6 flex-1 overflow-y-auto px-5 pb-16 sm:mt-10 sm:px-12">
         <div className="mx-auto flex max-w-6xl flex-col gap-10">
           {query.trim().length < 2 && (
             <p className="text-center text-[14px] text-ink-subtle">
@@ -133,7 +133,7 @@ export function SearchOverlay() {
               <h2 className="text-[12px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">
                 {section.title}
               </h2>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-5">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-4 sm:grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:gap-5">
                 {section.metas.slice(0, 14).map((meta, i) => (
                   <PickCard
                     key={`${meta.id}-${i}`}

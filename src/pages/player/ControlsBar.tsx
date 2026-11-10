@@ -69,7 +69,7 @@ export function ControlsBar({
     >
       {tracks.notice && <Notice text={tracks.notice} onDismiss={tracks.dismissNotice} />}
       {!live && <SeekBar clock={clock} chapters={mpv.chapters} segments={skipSegments} onPoke={onPoke} />}
-      <div className="flex items-center gap-3">
+      <div className="no-scrollbar flex items-center gap-2 overflow-x-auto sm:gap-3">
         <PlayPauseButton clock={clock} ended={ended} onClick={controls.togglePauseOrReplay} />
         {live ? <LiveBadge /> : <TimeReadout clock={clock} />}
         <VolumeControl
@@ -80,23 +80,25 @@ export function ControlsBar({
           onMute={controls.toggleMute}
         />
         <div className="flex-1" />
-        <QualityMenu mpv={mpv} />
-        {streams && <StreamsMenu streams={streams} />}
-        <AudioMenu tracks={tracks} mpv={mpv} />
-        <SubtitleMenu tracks={tracks} mpv={mpv} />
-        {!live && <SpeedMenu speed={mpv.speed} />}
-        <button
-          className={chip}
-          onClick={onToggleFullscreen}
-          title={fullscreenTitle}
-          aria-label={fullscreenTitle}
-        >
-          <Maximize size={15} />
-        </button>
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <QualityMenu mpv={mpv} />
+          {streams && <StreamsMenu streams={streams} />}
+          <AudioMenu tracks={tracks} mpv={mpv} />
+          <SubtitleMenu tracks={tracks} mpv={mpv} />
+          {!live && <SpeedMenu speed={mpv.speed} />}
+          <button
+            className={chip}
+            onClick={onToggleFullscreen}
+            title={fullscreenTitle}
+            aria-label={fullscreenTitle}
+          >
+            <Maximize size={15} />
+          </button>
+        </div>
         {onStop && (
           <button
             disabled={stopping}
-            className="flex h-8 items-center gap-1.5 rounded-md bg-danger/15 px-3 text-sm font-semibold text-[oklch(0.75_0.12_25)] transition-colors hover:bg-danger/25 disabled:opacity-60"
+            className="flex h-10 items-center gap-1.5 rounded-md bg-danger/15 px-3 text-sm font-semibold text-[oklch(0.75_0.12_25)] transition-colors hover:bg-danger/25 disabled:opacity-60"
             onClick={onStop}
             title="Stop and close mpv"
           >
@@ -123,7 +125,7 @@ function PlayPauseButton({
   const label = ended ? "Replay" : pause ? "Play" : "Pause";
   return (
     <button
-      className="flex h-8 w-10 items-center justify-center rounded-md bg-canvas/50 text-ink hover:bg-elevated"
+      className="flex h-10 w-10 items-center justify-center rounded-md bg-canvas/50 text-ink hover:bg-elevated"
       onClick={onClick}
       title={`${label} (Space)`}
       aria-label={label}
@@ -286,7 +288,7 @@ function VolumeControl({
   return (
     <div className="flex items-center gap-2">
       <button
-        className="flex h-8 w-8 items-center justify-center rounded-md bg-canvas/50 text-ink-muted hover:bg-elevated hover:text-ink"
+        className="flex h-10 w-10 items-center justify-center rounded-md bg-canvas/50 text-ink-muted hover:bg-elevated hover:text-ink"
         onClick={onMute}
         title={mute ? "Unmute (m)" : "Mute (m)"}
         aria-label={mute ? "Unmute" : "Mute"}

@@ -5,7 +5,7 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 export const chip =
-  "flex h-8 items-center gap-1.5 rounded-md bg-canvas/50 px-3 text-sm text-ink-muted hover:bg-elevated hover:text-ink";
+  "flex h-10 shrink-0 items-center gap-1.5 rounded-md bg-canvas/50 px-3 text-sm text-ink-muted hover:bg-elevated hover:text-ink";
 
 /** Marks an open menu panel: the mouse wheel then scrolls it rather than set the volume
  * (`usePlayerWheel`). */
