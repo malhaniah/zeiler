@@ -80,7 +80,9 @@ function Shell() {
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 z-30 h-24 bg-gradient-to-b from-canvas/85 via-canvas/40 to-transparent"
         />
-        <RootViewHost view={root} />
+        <div key={root} className="animate-view-in flex min-h-0 flex-1 flex-col">
+          <RootViewHost view={root} />
+        </div>
         {overlays.map((frame, i) => (
           <OverlayFrame key={`${frame.kind}-${i}`} frame={frame} />
         ))}

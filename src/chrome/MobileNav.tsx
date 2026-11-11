@@ -42,7 +42,7 @@ export function MobileNav() {
           aria-expanded={moreOpen}
           onClick={() => setMoreOpen(true)}
           className={`flex h-16 min-w-0 flex-col items-center justify-center gap-1 text-[10px] font-medium ${
-            moreActive ? "text-ink" : "text-ink-subtle"
+            moreActive ? "text-accent" : "text-ink-subtle"
           }`}
         >
           <MoreHorizontal size={21} strokeWidth={moreActive ? 2.2 : 1.7} />
@@ -59,7 +59,7 @@ export function MobileNav() {
         onClick={(e) => {
           if (e.target === e.currentTarget) setMoreOpen(false);
         }}
-        className="mb-0 mt-auto w-full max-w-none rounded-t-[24px] border border-edge-soft bg-elevated p-0 text-ink backdrop:bg-black/65 xl:hidden"
+        className="animate-modal-in mb-0 mt-auto w-full max-w-none rounded-t-[24px] border border-edge-soft bg-elevated p-0 text-ink backdrop:bg-black/65 xl:hidden"
       >
         <div className="px-5 pb-8 pt-5">
           <div className="mb-4 flex items-center justify-between">
@@ -90,7 +90,7 @@ function MobileNavItem({ entry, active, onSelect }: { entry: NavEntry; active: b
       aria-current={active ? "page" : undefined}
       onClick={() => onSelect(entry.view)}
       className={`flex h-16 min-w-0 flex-col items-center justify-center gap-1 text-[10px] font-medium ${
-        active ? "text-ink" : "text-ink-subtle"
+        active ? "text-accent" : "text-ink-subtle"
       }`}
     >
       <Icon size={21} strokeWidth={active ? 2.2 : 1.7} />

@@ -38,7 +38,7 @@ export function Poster({
   const [broken, setBroken] = useState(false);
   const showImage = src && !broken;
   return (
-    <div className={`relative overflow-hidden rounded-xl ${ASPECTS[ratio]} ${className}`}>
+    <div className={`relative overflow-hidden rounded-lg ${ASPECTS[ratio]} ${className}`}>
       {showImage ? (
         <img
           src={src}

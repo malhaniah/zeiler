@@ -22,7 +22,7 @@ export function PickCard({ meta, onClick }: { meta: MetaPreview; onClick: () => 
   const progress = useTitleProgress(meta.id);
   return (
     <button onClick={onClick} className="group flex w-full min-w-0 flex-col gap-2.5 text-left">
-      <div className={`relative transition-transform duration-300 ${SILK} group-hover:-translate-y-2`}>
+      <div className={`relative transition-transform duration-300 ${SILK} group-hover:-translate-y-1 group-hover:scale-[1.025] group-focus-visible:-translate-y-1 group-focus-visible:scale-[1.025]`}>
         <Poster
           src={meta.poster}
           seed={meta.id}
@@ -52,7 +52,7 @@ export function PickCard({ meta, onClick }: { meta: MetaPreview; onClick: () => 
   );
 }
 
-/** Top-10 card: giant outlined numeral behind a right-aligned poster. */
+/** Top-10 card: giant gold numeral behind a right-aligned poster. */
 export function TopRankCard({
   meta,
   rank,
@@ -71,18 +71,17 @@ export function TopRankCard({
     >
       <span
         aria-hidden
-        className="pointer-events-none absolute left-0 top-0 font-bold leading-[0.85] text-transparent"
+        className="pointer-events-none absolute left-0 top-0 font-bold leading-[0.85] text-accent/80"
         style={{
           fontFamily: "var(--font-display)",
           fontSize: `calc(100cqw * ${big ? 196 : 240} / 228)`,
           letterSpacing: big ? "-0.09em" : "-0.05em",
-          WebkitTextStroke: "1.5px var(--color-ink-subtle)",
         }}
       >
         {rank}
       </span>
       <div
-        className={`absolute right-0 top-0 z-10 w-[63%] transition-transform duration-300 ${SILK} group-hover:-translate-y-2`}
+        className={`absolute right-0 top-0 z-10 w-[63%] transition-transform duration-300 ${SILK} group-hover:-translate-y-1 group-hover:scale-[1.025] group-focus-visible:-translate-y-1 group-focus-visible:scale-[1.025]`}
       >
         <Poster
           src={meta.poster}

@@ -22,7 +22,7 @@ export function WebShell() {
         </p>
         <a
           href="https://zeiler.io"
-          className="mt-8 flex h-12 items-center gap-2.5 rounded-full bg-ink px-6 text-[14px] font-semibold text-canvas transition-transform hover:scale-[1.02] active:scale-[0.98]"
+          className="button-primary mt-8"
         >
           <Download size={17} />
           Get Zeiler desktop

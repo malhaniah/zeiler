@@ -24,7 +24,7 @@ export function HeroCarousel({
   const hovered = useRef(false);
 
   useEffect(() => {
-    if (items.length < 2) return;
+    if (items.length < 2 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const timer = setInterval(() => {
       if (!hovered.current && !document.hidden) {
         setActive((a) => (a + 1) % items.length);
@@ -105,7 +105,13 @@ function Slide({
       } ${active ? "opacity-100" : "pointer-events-none opacity-0"}`}
     >
       {art ? (
-        <img src={art} alt="" className="absolute inset-0 h-full w-full object-cover opacity-90" />
+        <img
+          src={art}
+          alt=""
+          className={`absolute inset-0 h-full w-full object-cover opacity-90 transition-transform duration-[1200ms] ${
+            active ? "scale-100" : "scale-[1.04]"
+          }`}
+        />
       ) : (
         <div className="absolute inset-0" style={{ background: fallbackGradient(meta.id) }} />
       )}
@@ -172,7 +178,7 @@ function Slide({
                 e.stopPropagation();
                 onOpen(meta);
               }}
-              className="flex h-12 items-center gap-2.5 rounded-full bg-ink px-7 text-[15px] font-semibold text-canvas shadow-[0_8px_24px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.65),inset_0_-1px_0_rgba(0,0,0,0.18)] transition-transform duration-200 hover:scale-[1.03] active:scale-[0.98]"
+              className="button-primary"
             >
               <Play size={17} fill="currentColor" />
               Play
@@ -182,7 +188,7 @@ function Slide({
                 e.stopPropagation();
                 onOpen(meta);
               }}
-              className="flex h-12 items-center gap-2 rounded-full border border-edge bg-canvas/55 px-6 text-[15px] font-medium text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-colors hover:border-ink-subtle hover:bg-canvas/75"
+              className="flex h-12 items-center gap-2 rounded-lg border border-edge bg-surface/85 px-6 text-[15px] font-semibold text-ink transition-[background-color,border-color,transform] duration-200 hover:-translate-y-px hover:border-ink-subtle hover:bg-elevated active:translate-y-0"
             >
               <Info size={16} />
               More info

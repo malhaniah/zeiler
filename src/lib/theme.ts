@@ -14,8 +14,8 @@ export const THEME_PRESETS: ThemePreset[] = [
   {
     id: "harbor-grey",
     name: "Zeiler default",
-    blurb: "Cool grey with warm gold.",
-    swatch: ["#2c2e36", "#3a3d47", "#dcdde4"],
+    blurb: "Sea-ink with warm gold.",
+    swatch: ["#0a161a", "#1a2e38", "#d9a63a"],
     tokens: {}, // the @theme defaults
   },
   {

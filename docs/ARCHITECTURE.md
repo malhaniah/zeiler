@@ -179,7 +179,12 @@ backend setting says.
   gone. `instantPlay`, which nothing ever read, is superseded: a new key, because every
   settings file written so far stores `instantPlay: false`, so changing its default
   would not have switched it on.
-- **Responsive and installable web shells** (`src/chrome/`, `public/`). Wide viewports use
+- **Responsive and installable web shells** (`src/chrome/`, `public/`). Nebula's sea-ink,
+  surface and gold tokens are adapted in `src/index.css`, with its low-contrast secondary
+  text corrected and its sunset gradient reserved for primary actions. Bundled Sora and
+  Manrope fonts live in `public/fonts` with their OFL licenses. Shared transitions cover
+  view changes, hero art, cards, dialogs and the seek bar; automatic carousels stop and
+  nonessential transitions collapse under reduced motion. Wide viewports use
   top navigation; smaller ones use bottom navigation with a More sheet for every other
   destination. Home and title details lead with full-width artwork, and rails, search,
   episodes and player controls adapt to touch layouts without dropping actions. The PWA
