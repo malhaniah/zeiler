@@ -65,7 +65,7 @@ export function Modal({
 }) {
   return (
     <div
-      className="fixed inset-0 z-[140] flex items-center justify-center bg-black/65 p-6 backdrop-blur-sm"
+      className="animate-backdrop-in fixed inset-0 z-[140] flex items-center justify-center bg-black/65 p-6 backdrop-blur-sm"
       onClick={onClose}
     >
       <div

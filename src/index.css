@@ -207,15 +207,31 @@ select:focus-visible,
   from { opacity: 0; transform: translateX(100%); }
   to { opacity: 1; transform: translateX(0); }
 }
+@keyframes zeiler-player-menu-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes zeiler-card-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes zeiler-section-in {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 .animate-fade-in { animation: zeiler-fade-in 250ms var(--ease-out) both; }
 .animate-view-in { animation: zeiler-view-in 340ms var(--ease-out) both; }
 .animate-step-in { animation: zeiler-step-in 420ms var(--ease-out) both; }
 .animate-modal-in { animation: zeiler-modal-in 320ms var(--ease-out) both; }
+.animate-backdrop-in { animation: zeiler-backdrop-in 220ms var(--ease-out) both; }
 .animate-nudge-in { animation: zeiler-nudge-in 320ms var(--ease-out) both; }
 .animate-popover-in { animation: zeiler-popover-in 200ms var(--ease-out) both; transform-origin: top right; }
+.animate-player-menu-in { animation: zeiler-player-menu-in 240ms var(--ease-out) both; transform-origin: bottom right; }
+.animate-card-in { animation: zeiler-card-in 480ms var(--ease-out) both; }
+.animate-section-in { animation: zeiler-section-in 480ms var(--ease-out) both; }
 .animate-loader-pulse { animation: zeiler-loader-pulse 2.4s var(--ease-in-out) infinite; }
-.animate-drawer-in { animation: zeiler-drawer-in 250ms var(--ease-out) both; }
+.animate-drawer-in { animation: zeiler-drawer-in 320ms var(--ease-out) both; }
 
 dialog::backdrop {
   animation: zeiler-backdrop-in 220ms var(--ease-out) both;

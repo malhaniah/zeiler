@@ -1,4 +1,5 @@
 import {
+  Children,
   type ReactNode,
   useCallback,
   useEffect,
@@ -106,7 +107,14 @@ export function Row({
           className="no-scrollbar -m-5 grid grid-flow-col gap-5 overflow-x-auto scroll-pl-5 p-5 [scroll-snap-type:x_proximity] sm:[scroll-snap-type:x_mandatory] [&>*]:[scroll-snap-align:start]"
           style={{ gridAutoColumns: `${cellWidth}px` }}
         >
-          {children}
+          {Children.map(children, (child, index) => (
+            <div
+              className="animate-card-in min-w-0"
+              style={{ animationDelay: `${Math.min(index, 10) * 40}ms` }}
+            >
+              {child}
+            </div>
+          ))}
         </div>
         <EdgeArrow side="left" visible={canLeft} onClick={() => scrollBy(-1)} />
         <EdgeArrow side="right" visible={canRight} onClick={() => scrollBy(1)} />

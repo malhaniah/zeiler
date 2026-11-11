@@ -36,20 +36,23 @@ export function Poster({
   children?: ReactNode;
 }) {
   const [broken, setBroken] = useState(false);
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
   const showImage = src && !broken;
   return (
     <div className={`relative overflow-hidden rounded-lg ${ASPECTS[ratio]} ${className}`}>
-      {showImage ? (
+      <div className="absolute inset-0" style={{ background: fallbackGradient(seed) }} />
+      {showImage && (
         <img
           src={src}
           alt=""
           loading="lazy"
           decoding="async"
+          onLoad={() => setLoadedSrc(src)}
           onError={() => setBroken(true)}
-          className="absolute inset-0 h-full w-full object-cover"
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
+            loadedSrc === src ? "opacity-100" : "opacity-0"
+          }`}
         />
-      ) : (
-        <div className="absolute inset-0" style={{ background: fallbackGradient(seed) }} />
       )}
       {children}
     </div>

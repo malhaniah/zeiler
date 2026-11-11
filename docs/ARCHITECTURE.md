@@ -418,9 +418,10 @@ run `sub-add` (see "Validation policy").
   bound in a forced input section of its own that sends `script-message zeiler-skip`,
   back as a `client-message`; disabling the section restores the user's binding).
 - **Episode drawer and next episode** (`EpisodeSidebar.tsx`, `useNextEpisode.ts`,
-  `src/lib/next-video.ts`). A right-edge arrow opens the title's episodes, grouped by
-  season with the current one marked and upcoming ones disabled. Picking one uses the
-  same stream-selection and in-place load as Next; Escape closes only the drawer. The
+  `src/lib/next-video.ts`). A right-edge arrow opens the current episode's season, with
+  a season select above its episode list. Only the selected season is shown, the current
+  episode is marked and upcoming ones are disabled. Picking one uses the same
+  stream-selection and in-place load as Next; Escape closes only the drawer. The
   video after the
   current one by stremio-core's order and `next_video` rules (the same as
   `zeiler_account::next_video_id`). In the last 90 s (or when the credits start, or on

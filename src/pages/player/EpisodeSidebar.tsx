@@ -8,7 +8,15 @@ export function EpisodeSidebar({ series, next }: { series: string; next: NextEpi
   const toggleRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const currentRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const seasons = useMemo(() => groupSeasons(next.episodes), [next.episodes]);
+  const currentSeason =
+    seasons.find((season) => season.videos.some((video) => video.id === next.currentEpisodeId))?.key ??
+    seasons[0]?.key ??
+    "";
+  const [seasonKey, setSeasonKey] = useState(currentSeason);
+  useEffect(() => setSeasonKey(currentSeason), [currentSeason]);
+  const selectedSeason = seasons.find((season) => season.key === seasonKey) ?? seasons[0];
 
   const close = useCallback(() => {
     setOpen(false);
@@ -62,7 +70,9 @@ export function EpisodeSidebar({ series, next }: { series: string; next: NextEpi
           <h2 className="mt-1 truncate font-display text-2xl font-medium tracking-tight text-ink" title={series}>
             {series}
           </h2>
-          <p className="mt-1 text-xs text-ink-subtle">{next.episodes.length} episodes</p>
+          <p className="mt-1 text-xs text-ink-subtle">
+            {selectedSeason.videos.length} {selectedSeason.videos.length === 1 ? "episode" : "episodes"} in {selectedSeason.label}
+          </p>
         </div>
         <button
           ref={closeRef}
@@ -76,19 +86,40 @@ export function EpisodeSidebar({ series, next }: { series: string; next: NextEpi
         </button>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-3 pb-6">
-        {seasons.map((season) => (
-          <section key={season.key} aria-labelledby={`player-season-${season.key}`}>
-            <h3
-              id={`player-season-${season.key}`}
-              className="px-2 pb-2 pt-5 text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-subtle"
-            >
-              {season.label}
-            </h3>
-            <div className="flex flex-col gap-1">
-              {season.videos.map((video) => (
+      {seasons.length > 1 && (
+        <label className="flex items-center gap-3 border-b border-edge-soft px-5 py-4 text-xs font-medium text-ink-subtle">
+          Season
+          <select
+            aria-label="Season"
+            value={selectedSeason.key}
+            onChange={(e) => {
+              setSeasonKey(e.target.value);
+              listRef.current?.scrollTo({
+                top: 0,
+                behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+              });
+            }}
+            className="h-11 min-w-0 flex-1 cursor-pointer rounded-xl border border-edge bg-surface px-3 text-sm font-semibold text-ink outline-none transition-colors hover:border-ink-subtle"
+          >
+            {seasons.map((season) => (
+              <option key={season.key} value={season.key} className="bg-surface text-ink">
+                {season.label} · {season.videos.length} {season.videos.length === 1 ? "episode" : "episodes"}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      <div ref={listRef} className="flex-1 overflow-y-auto px-3 pb-6 pt-3">
+        <section key={selectedSeason.key} aria-label={selectedSeason.label}>
+          <div className="flex flex-col gap-1">
+            {selectedSeason.videos.map((video, index) => (
+              <div
+                key={video.id}
+                className="animate-card-in"
+                style={{ animationDelay: `${Math.min(index, 10) * 35}ms` }}
+              >
                 <EpisodeRow
-                  key={video.id}
                   video={video}
                   current={next.currentEpisodeId === video.id}
                   pending={next.pendingEpisodeId === video.id}
@@ -96,10 +127,10 @@ export function EpisodeSidebar({ series, next }: { series: string; next: NextEpi
                   buttonRef={next.currentEpisodeId === video.id ? currentRef : null}
                   onPlay={() => next.playEpisode(video)}
                 />
-              ))}
-            </div>
-          </section>
-        ))}
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
     </aside>
   );

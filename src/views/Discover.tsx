@@ -101,7 +101,7 @@ function FeaturedBanner({
   const hovered = useRef(false);
 
   useEffect(() => {
-    if (items.length < 2) return;
+    if (items.length < 2 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const timer = setInterval(() => {
       if (!hovered.current && !document.hidden) setActive((a) => (a + 1) % items.length);
     }, 14000);

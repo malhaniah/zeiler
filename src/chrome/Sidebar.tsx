@@ -54,11 +54,21 @@ function NavItem({ entry, active, onSelect }: { entry: NavEntry; active: boolean
       aria-current={active ? "page" : undefined}
       title={entry.label}
       onClick={() => onSelect(entry.view)}
-      className={`relative flex h-14 items-center justify-start gap-4 rounded-xl px-4 text-[15px] transition-colors duration-150 ${
+      className={`group/nav relative flex h-14 items-center justify-start gap-4 rounded-xl px-4 text-[15px] transition-colors duration-150 ${
         active ? "bg-elevated text-accent" : "text-ink-muted hover:bg-elevated/50 hover:text-ink"
       }`}
     >
-      <Icon size={20} strokeWidth={active ? 2.1 : 1.7} />
+      <span
+        aria-hidden
+        className={`absolute inset-y-3 left-0 w-0.5 rounded-full bg-accent transition-[transform,opacity] duration-300 ${
+          active ? "scale-y-100 opacity-100" : "scale-y-0 opacity-0"
+        }`}
+      />
+      <Icon
+        size={20}
+        strokeWidth={active ? 2.1 : 1.7}
+        className="transition-transform duration-200 group-hover/nav:-translate-y-0.5"
+      />
       <span className="flex-1 text-left">{entry.label}</span>
     </button>
   );
