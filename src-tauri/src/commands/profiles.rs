@@ -206,6 +206,83 @@ pub async fn profile_set_pin(
     Ok(changed(&app, &state).await)
 }
 
+async fn set_avatar(state: &AppState, id: &str, data_url: Option<String>) -> Result<(), IpcError> {
+    let mut next = state.profiles.read().await.clone();
+    let old = find(&next.profiles, id)?.avatar.clone();
+    let dir = profiles::profile_dir(state.data_dir(), id);
+    let decoded = match data_url {
+        Some(url) => {
+            let (bytes, extension) = profiles::decode_avatar(&url)?;
+            Some((format!("avatar.{extension}"), bytes))
+        }
+        None => None,
+    };
+    let file = decoded.as_ref().map(|(name, _)| name.clone());
+    // A same-extension replacement overwrites the old path, so keep its bytes until
+    // profiles.json has committed. A cross-extension old path remains untouched.
+    let old_bytes = if file.is_some() && file == old {
+        let name = old.as_deref().expect("a new avatar has a file name");
+        match tokio::fs::read(dir.join(name)).await {
+            Ok(bytes) => Some(bytes),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+            Err(e) => {
+                return Err(IpcError::Storage(format!(
+                    "Could not preserve the current profile picture: {e}"
+                )));
+            }
+        }
+    } else {
+        None
+    };
+    if let Some((name, bytes)) = decoded {
+        crate::persist::write_bytes(&dir.join(name), bytes).await?;
+    }
+    next.profiles
+        .iter_mut()
+        .find(|p| p.id == id)
+        .expect("found above")
+        .avatar = file.clone();
+    if let Err(error) = state.save_profiles(next).await {
+        let rollback = if let Some(name) = file.as_deref().filter(|_| file != old) {
+            match tokio::fs::remove_file(dir.join(name)).await {
+                Ok(()) => Ok(()),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                Err(e) => Err(IpcError::Storage(format!(
+                    "Could not remove the new profile picture: {e}"
+                ))),
+            }
+        } else if let Some(name) = file.as_deref() {
+            match old_bytes {
+                Some(bytes) => crate::persist::write_bytes(&dir.join(name), bytes).await,
+                None => match tokio::fs::remove_file(dir.join(name)).await {
+                    Ok(()) => Ok(()),
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                    Err(e) => Err(IpcError::Storage(format!(
+                        "Could not restore the previous profile picture: {e}"
+                    ))),
+                },
+            }
+        } else {
+            Ok(())
+        };
+        if let Err(undo) = rollback {
+            tracing::error!(
+                "could not restore the previous avatar after profiles.json failed: {undo}"
+            );
+            return Err(IpcError::Storage(format!(
+                "Could not save the profile picture: {error}. Restoring the previous picture also failed: {undo}."
+            )));
+        }
+        return Err(error);
+    }
+    if let Some(old) = old.filter(|old| Some(old) != file.as_ref() && profiles::is_avatar_file(old))
+        && let Err(e) = tokio::fs::remove_file(dir.join(old)).await
+    {
+        tracing::warn!("could not remove the replaced profile picture: {e}");
+    }
+    Ok(())
+}
+
 /// Set a profile's picture (a `data:` URL of a PNG, JPEG, WebP or GIF of at most
 /// 512 KB), or remove it with `None`.
 #[tauri::command]
@@ -217,30 +294,9 @@ pub async fn profile_set_avatar(
     pin: Option<String>,
 ) -> Result<ProfilesState, IpcError> {
     let _op = state.profile_op.lock().await;
-    let mut next = state.profiles.read().await.clone();
-    let profile = find(&next.profiles, &id)?;
-    authorize(&state, profile, pin.as_deref())?;
-    let dir = profiles::profile_dir(state.data_dir(), &id);
-    let old = profile.avatar.clone();
-    let file = match data_url {
-        Some(url) => {
-            let (bytes, extension) = profiles::decode_avatar(&url)?;
-            let name = format!("avatar.{extension}");
-            crate::persist::write_bytes(&dir.join(&name), bytes).await?;
-            Some(name)
-        }
-        None => None,
-    };
-    if let Some(old) = old.filter(|old| Some(old) != file.as_ref() && profiles::is_avatar_file(old))
-    {
-        let _ = tokio::fs::remove_file(dir.join(old)).await;
-    }
-    next.profiles
-        .iter_mut()
-        .find(|p| p.id == id)
-        .expect("found above")
-        .avatar = file;
-    state.save_profiles(next).await?;
+    let next = state.profiles.read().await.clone();
+    authorize(&state, find(&next.profiles, &id)?, pin.as_deref())?;
+    set_avatar(&state, &id, data_url).await?;
     Ok(changed(&app, &state).await)
 }
 
@@ -327,8 +383,6 @@ pub async fn profile_select(
     }
     unlock(&state);
     updates.clear();
-    // addon changes not yet sent belonged to the profile left
-    account.clear_pending();
     Ok(changed(&app, &state).await)
 }
 
@@ -419,5 +473,88 @@ mod tests {
         let (state, _) = state_with_locked_profile("profiles-unlocked").await;
         state.unlocked.lock().unwrap().clear();
         assert!(snapshot(&state).await.unlocked, "the primary has no PIN");
+    }
+
+    #[tokio::test]
+    async fn failed_avatar_metadata_save_preserves_old_avatar_and_metadata() {
+        let old_png = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A, 1];
+        let new_png = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A, 2];
+        let new_jpg = vec![0xFF, 0xD8, 0xFF, 2];
+        for (case, replacement, old_name, new_name) in [
+            ("same-extension", new_png, "avatar.png", "avatar.png"),
+            ("cross-extension", new_jpg, "avatar.png", "avatar.jpg"),
+        ] {
+            let dir = crate::persist::tests::temp_dir(&format!("avatar-rollback-{case}"));
+            let data = dir.join("data");
+            let state = AppState::load(data.clone(), dir.join("cache"))
+                .await
+                .unwrap();
+            let id = state.profiles.read().await.active_id.clone().unwrap();
+            set_avatar(
+                &state,
+                &id,
+                Some(profiles::avatar_data_url(&old_png, "png")),
+            )
+            .await
+            .unwrap();
+            let profile_dir = profiles::profile_dir(&data, &id);
+            let metadata_path = data.join(profiles::PROFILES_FILE);
+            let old_metadata = std::fs::read(&metadata_path).unwrap();
+            std::fs::create_dir(data.join("profiles.json.tmp")).unwrap();
+
+            let result = set_avatar(
+                &state,
+                &id,
+                Some(profiles::avatar_data_url(&replacement, &new_name[7..])),
+            )
+            .await;
+
+            assert!(matches!(result, Err(IpcError::Storage(_))), "{case}");
+            assert_eq!(
+                std::fs::read(profile_dir.join(old_name)).unwrap(),
+                old_png,
+                "{case}: old avatar bytes"
+            );
+            assert_eq!(
+                std::fs::read(&metadata_path).unwrap(),
+                old_metadata,
+                "{case}: metadata bytes"
+            );
+            let avatar = state.profiles.read().await.profiles[0].avatar.clone();
+            assert_eq!(avatar.as_deref(), Some(old_name), "{case}: memory");
+            if old_name != new_name {
+                assert!(
+                    !profile_dir.join(new_name).exists(),
+                    "{case}: uncommitted new avatar removed"
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn successful_cross_extension_avatar_change_removes_old_file_after_save() {
+        let dir = crate::persist::tests::temp_dir("avatar-replaces");
+        let data = dir.join("data");
+        let state = AppState::load(data.clone(), dir.join("cache"))
+            .await
+            .unwrap();
+        let id = state.profiles.read().await.active_id.clone().unwrap();
+        let png = [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+        let jpg = [0xFF, 0xD8, 0xFF];
+        set_avatar(&state, &id, Some(profiles::avatar_data_url(&png, "png")))
+            .await
+            .unwrap();
+
+        set_avatar(&state, &id, Some(profiles::avatar_data_url(&jpg, "jpg")))
+            .await
+            .unwrap();
+
+        let profile_dir = profiles::profile_dir(&data, &id);
+        assert!(!profile_dir.join("avatar.png").exists());
+        assert_eq!(std::fs::read(profile_dir.join("avatar.jpg")).unwrap(), jpg);
+        assert_eq!(
+            state.profiles.read().await.profiles[0].avatar.as_deref(),
+            Some("avatar.jpg")
+        );
     }
 }

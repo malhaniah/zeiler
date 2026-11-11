@@ -19,8 +19,8 @@
 //!   channel id).
 //! - The watched bitfield is only written when the caller knows the meta's videos;
 //!   for a movie (no videos) `state.watched` stays `null` as stremio-core documents it,
-//!   and a stored field whose anchor is missing from the given list is left alone
-//!   rather than replaced by a blank one (a partial list must never erase marks).
+//!   and a stored field is left alone when the given list cannot represent all its marks
+//!   (a partial list must never erase them).
 //! - The credits rule at the end of playback needs a known duration.
 
 use std::cmp::Ordering;
@@ -427,7 +427,8 @@ pub fn advance_to_video(item: &mut LibraryItem, video_id: &str) {
 
 /// Mark the whole item watched or unwatched (stremio-core `LibraryItem::mark_as_watched`):
 /// watched increments `timesWatched`, stamps `lastWatched` and clears the resume
-/// position; unwatched resets `timesWatched`.
+/// position; unwatched resets `timesWatched` and lets the current video be flagged again
+/// after a replay, without discarding its historical `overallTimeWatched`.
 pub fn mark_watched(item: &mut LibraryItem, watched: bool, now: DateTime<Utc>) {
     if watched {
         item.state.times_watched = item.state.times_watched.saturating_add(1);
@@ -435,14 +436,17 @@ pub fn mark_watched(item: &mut LibraryItem, watched: bool, now: DateTime<Utc>) {
         item.state.time_offset = 0;
     } else {
         item.state.times_watched = 0;
+        item.state.time_watched = 0;
+        item.state.flagged_watched = 0;
     }
 }
 
 /// Mark one video watched or unwatched in the bitfield (stremio-core
 /// `LibraryItem::mark_video_as_watched`); `videos` is the meta's full video list.
 /// Marking watched moves `lastWatched` up to the video's release date when that is
-/// later. Returns false when `video_id` is not in `videos` (nothing changes). Leaves
-/// Continue Watching alone; [`mark_videos_watched`] is the user action.
+/// later. Returns false without changes when `video_id` is not in `videos` or existing
+/// marks cannot be safely realigned. Leaves Continue Watching alone;
+/// [`mark_videos_watched`] is the user action.
 pub fn mark_video_watched(
     item: &mut LibraryItem,
     videos: &[VideoRef],
@@ -458,8 +462,9 @@ pub fn mark_video_watched(
 /// the release date of the last marked video (in the meta's order) when that is later.
 /// When marking watched takes in the video Continue Watching points at, it moves on:
 /// for one video to the next one, for several past the already watched ones (as for a
-/// season); with nothing left, the resume position is dropped. Returns false when no
-/// id is in `videos` (nothing changes).
+/// season); with nothing left, the resume position is dropped. Unmarking the current
+/// video resets its playback watch count. Returns false without changes when no id is
+/// in `videos` or existing marks cannot be safely realigned.
 pub fn mark_videos_watched(
     item: &mut LibraryItem,
     videos: &[VideoRef],
@@ -486,7 +491,8 @@ pub fn mark_videos_watched(
 /// `MarkSeasonAsWatched`): the season's videos are marked as by
 /// [`mark_videos_watched`], and when Continue Watching points into the season it moves
 /// past the watched videos (`reconcile_series_resume_after_watched_change`), however
-/// many the season has. Returns false when the season has no videos.
+/// many the season has. Returns false without changes when the season has no videos or
+/// existing marks cannot be safely realigned.
 pub fn mark_season_watched(
     item: &mut LibraryItem,
     videos: &[VideoRef],
@@ -565,7 +571,8 @@ fn move_on(
 }
 
 /// Set the marks of `video_ids` in one pass and return the new bitfield; `None` (and
-/// nothing changed) when none of them is in `videos`.
+/// nothing changed) when none of them is in `videos` or the stored marks cannot be
+/// realigned without loss. Unmarking the current video resets its playback watch count.
 fn set_marks(
     item: &mut LibraryItem,
     videos: &[VideoRef],
@@ -579,7 +586,7 @@ fn set_marks(
         .collect();
     let last = marked.last()?;
     let released = last.released;
-    let mut bits = bitfield(&item.state, videos);
+    let mut bits = bitfield_for_update(&item.state, videos)?;
     let index: HashMap<&str, usize> = bits
         .video_ids()
         .iter()
@@ -600,6 +607,14 @@ fn set_marks(
             (None, released) => released,
             (last, _) => last,
         };
+    } else if item
+        .state
+        .video_id
+        .as_deref()
+        .is_some_and(|current| marked.iter().any(|video| video.id == current))
+    {
+        item.state.time_watched = 0;
+        item.state.flagged_watched = 0;
     }
     Some(bits)
 }
@@ -763,23 +778,48 @@ fn bitfield(state: &LibraryItemState, videos: &[VideoRef]) -> WatchedBitField {
     }
 }
 
+/// The item's bitfield for a write, or `None` when aligning it to `videos` would drop
+/// a watched mark. Reads treat an unknown anchor as blank, but a partial list must not
+/// turn that temporary read behavior into a destructive write.
+fn bitfield_for_update(state: &LibraryItemState, videos: &[VideoRef]) -> Option<WatchedBitField> {
+    let ids = ordered_video_ids(videos);
+    let Some(field) = state
+        .watched
+        .as_deref()
+        .and_then(|w| w.parse::<WatchedField>().ok())
+    else {
+        return Some(WatchedBitField::construct_from_array(&[], ids));
+    };
+    if field.bitfield.last_index_of(true).is_some() {
+        let anchor = ids.iter().position(|id| *id == field.anchor_video)?;
+        let anchor_length = i64::try_from(anchor).ok()?.checked_add(1)?;
+        let offset = i64::try_from(field.anchor_length)
+            .ok()?
+            .checked_sub(anchor_length)?;
+        for previous in 0..field.bitfield.length {
+            if field.bitfield.get(previous) {
+                let current = i64::try_from(previous).ok()?.checked_sub(offset)?;
+                if usize::try_from(current)
+                    .ok()
+                    .is_none_or(|current| current >= ids.len())
+                {
+                    return None;
+                }
+            }
+        }
+    }
+    Some(WatchedBitField::construct_with_videos(field, ids))
+}
+
 /// Set one bit for the player's watched rule; leaves the field alone without a video
-/// list, or when the stored anchor is not in the list but marks exist (a partial list
-/// must never erase marks).
+/// list, or when a partial list cannot represent all its existing marks.
 fn set_watched_bit(state: &mut LibraryItemState, videos: &[VideoRef], video_id: &str, value: bool) {
     if videos.is_empty() || !videos.iter().any(|v| v.id == video_id) {
         return;
     }
-    if let Some(field) = state
-        .watched
-        .as_deref()
-        .and_then(|w| w.parse::<WatchedField>().ok())
-        && field.bitfield.last_index_of(true).is_some()
-        && !videos.iter().any(|v| v.id == field.anchor_video)
-    {
+    let Some(mut bits) = bitfield_for_update(state, videos) else {
         return;
-    }
-    let mut bits = bitfield(state, videos);
+    };
     bits.set_video(video_id, value);
     state.watched = Some(WatchedField::from(bits).to_string());
 }
@@ -1049,11 +1089,12 @@ mod tests {
         let now = t("2024-01-01T20:00:00Z");
         let mut item = new_item_from_meta(&movie(), now);
         let all = episodes(9);
+        assert!(mark_video_watched(&mut item, &all, "tt0944947:1:1", true));
         assert!(mark_video_watched(&mut item, &all, "tt0944947:1:8", true));
         let stored = item.state.watched.clone();
 
-        // the player only knows episodes 1-2: the anchor (1:8) is not among them
-        let partial: Vec<VideoRef> = all
+        // The player only knows episodes 1-2: the anchor (1:8) is not among them.
+        let missing_anchor: Vec<VideoRef> = all
             .iter()
             .filter(|v| v.episode <= Some(2))
             .cloned()
@@ -1065,12 +1106,129 @@ mod tests {
                 "tt0944947:1:1",
                 minute * 60_000,
                 3_000_000,
-                &partial,
+                &missing_anchor,
                 now,
             );
         }
         assert_eq!(item.state.times_watched, 1);
         assert_eq!(item.state.watched, stored);
+
+        // Even with the anchor present, this list cannot represent the mark on 1:1.
+        let missing_mark: Vec<VideoRef> = all
+            .iter()
+            .filter(|v| matches!(v.episode, Some(2 | 8)))
+            .cloned()
+            .collect();
+        for partial in [missing_anchor, missing_mark] {
+            for watched in [true, false] {
+                let before = item.clone();
+                assert!(!mark_video_watched(
+                    &mut item,
+                    &partial,
+                    "tt0944947:1:2",
+                    watched
+                ));
+                assert_eq!(item, before);
+                assert!(!mark_videos_watched(
+                    &mut item,
+                    &partial,
+                    &["tt0944947:1:1", "tt0944947:1:2"],
+                    watched,
+                    now
+                ));
+                assert_eq!(item, before);
+                assert!(!mark_season_watched(&mut item, &partial, 1, watched, now));
+                assert_eq!(item, before);
+            }
+        }
+    }
+
+    #[test]
+    fn unmarking_a_movie_allows_the_same_video_to_be_watched_again() {
+        let now = t("2024-01-01T20:00:00Z");
+        let mut item = new_item_from_meta(&movie(), now);
+        let duration = 600_000;
+        for second in (0..=430).step_by(10) {
+            apply_playback_progress(&mut item, "tt0133093", second * 1000, duration, &[], now);
+        }
+        assert_eq!(item.state.times_watched, 1);
+        assert_eq!(item.state.flagged_watched, 1);
+        let historical = item.state.overall_time_watched;
+
+        mark_watched(&mut item, false, now);
+        assert_eq!(item.state.times_watched, 0);
+        assert_eq!(item.state.flagged_watched, 0);
+        assert_eq!(item.state.time_watched, 0);
+        assert_eq!(item.state.overall_time_watched, historical);
+
+        apply_seek(&mut item, "tt0133093", 0, duration, &[], now);
+        let mut watched_at = None;
+        for second in (0..=430).step_by(10) {
+            if apply_playback_progress(&mut item, "tt0133093", second * 1000, duration, &[], now) {
+                watched_at = Some(second * 1000);
+            }
+        }
+        assert_eq!(watched_at, Some(430_000));
+        assert_eq!(item.state.times_watched, 1);
+        assert_eq!(item.state.overall_time_watched, historical + 430_000);
+    }
+
+    #[test]
+    fn unmarking_the_current_episode_or_season_allows_a_replay() {
+        let now = t("2024-01-01T20:00:00Z");
+        let videos = episodes(3);
+        let mut item = new_item_from_meta(&movie(), now);
+        let duration = 600_000;
+        let video_id = "tt0944947:1:2";
+        for second in (0..=430).step_by(10) {
+            apply_playback_progress(&mut item, video_id, second * 1000, duration, &videos, now);
+        }
+        assert_eq!(item.state.flagged_watched, 1);
+        assert!(bitfield(&item.state, &videos).get_video(video_id));
+        let historical = item.state.overall_time_watched;
+
+        assert!(mark_videos_watched(
+            &mut item,
+            &videos,
+            &["tt0944947:1:1"],
+            false,
+            now
+        ));
+        assert_eq!(item.state.flagged_watched, 1, "another episode");
+        assert_eq!(item.state.time_watched, 430_000);
+
+        assert!(mark_videos_watched(
+            &mut item,
+            &videos,
+            &[video_id],
+            false,
+            now
+        ));
+        assert_eq!(item.state.flagged_watched, 0);
+        assert_eq!(item.state.time_watched, 0);
+        assert_eq!(item.state.overall_time_watched, historical);
+
+        let replay = |item: &mut LibraryItem| {
+            apply_seek(item, video_id, 0, duration, &videos, now);
+            let mut watched_at = None;
+            for second in (0..=430).step_by(10) {
+                if apply_playback_progress(item, video_id, second * 1000, duration, &videos, now) {
+                    watched_at = Some(second * 1000);
+                }
+            }
+            assert_eq!(watched_at, Some(430_000));
+        };
+        replay(&mut item);
+        assert_eq!(item.state.overall_time_watched, historical + 430_000);
+
+        let historical = item.state.overall_time_watched;
+        assert!(mark_season_watched(&mut item, &videos, 1, false, now));
+        assert_eq!(item.state.flagged_watched, 0);
+        assert_eq!(item.state.time_watched, 0);
+        assert_eq!(item.state.overall_time_watched, historical);
+        replay(&mut item);
+        assert_eq!(item.state.times_watched, 3);
+        assert_eq!(item.state.overall_time_watched, historical + 430_000);
     }
 
     #[test]

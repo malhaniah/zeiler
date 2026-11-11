@@ -47,6 +47,7 @@ export function SearchOverlay() {
 
   // debounce search 450ms
   useEffect(() => {
+    const id = ++requestId.current;
     if (!open) return;
     const q = query.trim();
     if (q.length < 2) {
@@ -54,7 +55,6 @@ export function SearchOverlay() {
       setSearching(false);
       return;
     }
-    const id = ++requestId.current;
     setSearching(true);
     const timer = setTimeout(async () => {
       const targets = searchableCatalogs(addons, showAdult);

@@ -123,8 +123,8 @@ pub fn start_background_sync(app: AppHandle) {
 
 /// Local addon changes for the account: queued now (the caller holds `profile_op`,
 /// so in the order they happened), sent in the background when addon sync is on. A
-/// failure is reported in the account status, never to the change itself; the change
-/// stays queued and goes with the next sync.
+/// send failure leaves the change queued for the next sync. If the queue itself cannot
+/// be persisted, destructive pulls pause rather than undoing the local change.
 pub async fn addons_changed(app: &AppHandle, ops: Vec<AddonOp>) {
     let Some(account) = app.try_state::<AccountState>() else {
         return;
@@ -132,7 +132,14 @@ pub async fn addons_changed(app: &AppHandle, ops: Vec<AddonOp>) {
     if !account.file.get().await.sync_addons || ops.is_empty() {
         return;
     }
-    account.queue(ops);
+    if let Err(e) = account.queue(ops).await {
+        account.addon_queue_failed();
+        account.set_error(Some(format!(
+            "Your addon change wasn't added to the sync queue ({e}); addon pulls are paused to keep it."
+        )));
+        announce(app).await;
+        return;
+    }
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         let (Some(state), Some(account)) =
@@ -199,6 +206,7 @@ pub async fn account_link_poll(
     if code.is_empty() || code.len() > 64 || !code.bytes().all(|b| b.is_ascii_alphanumeric()) {
         return Err(IpcError::InvalidInput("That is not a sign-in code.".into()));
     }
+    let intended_profile = active_profile(&state).await;
     let token = match account.api.link_read(&code).await {
         Ok(token) => token,
         Err(SyncError::LinkPending) => return Ok(None),
@@ -209,8 +217,7 @@ pub async fn account_link_poll(
         .login_with_token(&token)
         .await
         .map_err(ipc_error)?;
-    let profile = active_profile(&state).await;
-    account::signed_in(&account, &profile, key, user, remember).await?;
+    account::signed_in_active(&state, &account, intended_profile, key, user, remember).await?;
     first_sync(&app);
     Ok(announce(&app).await)
 }
@@ -233,12 +240,12 @@ pub async fn account_login_password(
             "Enter your email and password.".into(),
         ));
     }
+    let intended_profile = active_profile(&state).await;
     let result = account.api.login(&email, &password).await;
     // not kept: wiped from this copy once Stremio has answered
     password.zeroize();
     let (key, user) = result.map_err(ipc_error)?;
-    let profile = active_profile(&state).await;
-    account::signed_in(&account, &profile, key, user, remember).await?;
+    account::signed_in_active(&state, &account, intended_profile, key, user, remember).await?;
     first_sync(&app);
     announce(&app)
         .await
@@ -403,6 +410,7 @@ pub async fn account_addons_apply(
     account: State<'_, AccountState>,
     choice: AddonsChoice,
 ) -> Result<AccountStatus, IpcError> {
+    let _one = account.sync_lock.lock().await;
     let profile = active_profile(&state).await;
     let first = match choice {
         AddonsChoice::UseAccount => Some(FirstSync::UseAccount),
@@ -410,7 +418,6 @@ pub async fn account_addons_apply(
         AddonsChoice::KeepLocal => None,
     };
     if let Some(first) = first {
-        let _one = account.sync_lock.lock().await;
         let (key, _) = account
             .key(&profile)
             .ok_or_else(|| IpcError::SessionExpired("Sign in to Stremio first.".into()))?;

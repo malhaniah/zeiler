@@ -12,7 +12,7 @@ use zeiler_player::{Player, PlayerBackend};
 
 use crate::error::IpcError;
 use crate::home_rows::HomeRows;
-use crate::persist::{read_json, write_json};
+use crate::persist::{read_json, write_bytes, write_json};
 use crate::profiles::{self, PinAttempts, ProfilesFile};
 use crate::settings_groups::{
     AudioSettings, KeyError, MarketplaceSources, SettingsObject, SkipSettings, SubtitleSettings,
@@ -236,28 +236,30 @@ impl Settings {
 const LEGACY_IDENTIFIER: &str = "app.sailor.desktop";
 const MIGRATED_FILES: [&str; 2] = ["settings.json", "addons.json"];
 
-/// One-time copy of settings and addons from the pre-rename data dir (a sibling of
-/// `data_dir`) when this install has neither yet. Copies rather than moves, so a
-/// still-installed Sailor keeps working. Best effort: failures only log.
+/// Copy settings and addons independently from the pre-rename data dir (a sibling of
+/// `data_dir`). Existing files are left alone, and a failed file is retried on the next
+/// launch without blocking the other. Copies rather than moves, so a still-installed
+/// Sailor keeps working. Best effort: failures only log.
 async fn migrate_legacy_data(data_dir: &Path) {
     let Some(legacy) = data_dir.parent().map(|p| p.join(LEGACY_IDENTIFIER)) else {
         return;
     };
     for name in MIGRATED_FILES {
-        if tokio::fs::try_exists(data_dir.join(name))
-            .await
-            .unwrap_or(true)
-        {
-            return;
-        }
-    }
-    for name in MIGRATED_FILES {
-        let from = legacy.join(name);
-        if !tokio::fs::try_exists(&from).await.unwrap_or(false) {
+        let to = data_dir.join(name);
+        if tokio::fs::try_exists(&to).await.unwrap_or(true) {
             continue;
         }
-        match tokio::fs::copy(&from, data_dir.join(name)).await {
-            Ok(_) => info!("migrated {name} from {}", legacy.display()),
+        let from = legacy.join(name);
+        let bytes = match tokio::fs::read(&from).await {
+            Ok(bytes) => bytes,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(e) => {
+                warn!("could not read legacy {}: {e}", from.display());
+                continue;
+            }
+        };
+        match write_bytes(&to, bytes).await {
+            Ok(()) => info!("migrated {name} from {}", legacy.display()),
             Err(e) => warn!("could not migrate {}: {e}", from.display()),
         }
     }
@@ -496,11 +498,41 @@ impl AppState {
         let next = next(&current)?;
         {
             let _guard = self.persist_lock.lock().await;
-            write_json(&self.data_dir.join("settings.json"), &next).await?;
+            let settings_path = self.data_dir.join("settings.json");
+            let previous = match tokio::fs::read(&settings_path).await {
+                Ok(bytes) => Some(bytes),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+                Err(e) => {
+                    return Err(IpcError::Storage(format!(
+                        "Could not preserve the current device settings: {e}"
+                    )));
+                }
+            };
+            write_json(&settings_path, &next).await?;
             // the active profile's own keys go to its folder too: they are what it
             // gets back when it is switched to
             let prefs = Value::Object(profiles::profile_subset(&next.to_object()));
-            write_json(&profile_dir.join(profiles::PREFS_FILE), &prefs).await?;
+            if let Err(error) = write_json(&profile_dir.join(profiles::PREFS_FILE), &prefs).await {
+                let rollback = match previous {
+                    Some(bytes) => write_bytes(&settings_path, bytes).await,
+                    None => match tokio::fs::remove_file(&settings_path).await {
+                        Ok(()) => Ok(()),
+                        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                        Err(e) => Err(IpcError::Storage(format!(
+                            "Could not remove the uncommitted device settings: {e}"
+                        ))),
+                    },
+                };
+                if let Err(undo) = rollback {
+                    tracing::error!(
+                        "could not roll back settings.json after prefs.json failed: {undo}"
+                    );
+                    return Err(IpcError::Storage(format!(
+                        "Could not save profile preferences: {error}. Restoring settings.json also failed: {undo}. Device settings may be changed while profile preferences are not."
+                    )));
+                }
+                return Err(error);
+            }
         }
         *current = next.clone();
         on_commit(&next);
@@ -850,6 +882,43 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn failed_profile_prefs_write_rolls_device_settings_back_byte_for_byte() {
+        let dir = crate::persist::tests::temp_dir("settings-rollback");
+        let data = dir.join("data");
+        let state = AppState::load(data.clone(), dir.join("cache"))
+            .await
+            .unwrap();
+        state
+            .update_settings(
+                |s| s.patched(json!({"mpvPath": "/old/mpv", "theme": "ocean"})),
+                |_| {},
+            )
+            .await
+            .unwrap();
+        let settings_path = data.join("settings.json");
+        let prefs_path = state.profile_dir().join(profiles::PREFS_FILE);
+        let old_settings = std::fs::read(&settings_path).unwrap();
+        let old_prefs = std::fs::read(&prefs_path).unwrap();
+        std::fs::create_dir(state.profile_dir().join("prefs.json.tmp")).unwrap();
+        let mut committed = false;
+
+        let result = state
+            .update_settings(
+                |s| s.patched(json!({"mpvPath": "/new/mpv", "theme": "dusk"})),
+                |_| committed = true,
+            )
+            .await;
+
+        assert!(matches!(result, Err(IpcError::Storage(_))));
+        assert!(!committed);
+        assert_eq!(std::fs::read(settings_path).unwrap(), old_settings);
+        assert_eq!(std::fs::read(prefs_path).unwrap(), old_prefs);
+        let current = state.settings.read().await;
+        assert_eq!(current.mpv_path.as_deref(), Some("/old/mpv"));
+        assert_eq!(current.theme, "ocean");
+    }
+
+    #[tokio::test]
     async fn profile_dir_is_the_active_profiles_folder() {
         let dir = crate::persist::tests::temp_dir("profile-dir");
         let state = AppState::load(dir.join("data"), dir.join("cache"))
@@ -966,7 +1035,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn leaves_an_existing_install_alone() {
+    async fn migration_copies_each_missing_file_independently() {
         let (legacy, current) = data_dirs("migrate-existing");
         std::fs::write(legacy.join("settings.json"), r#"{"theme":"ocean"}"#).unwrap();
         std::fs::write(legacy.join("addons.json"), "[]").unwrap();
@@ -978,6 +1047,40 @@ mod tests {
             std::fs::read_to_string(current.join("settings.json")).unwrap(),
             "{}"
         );
-        assert!(!current.join("addons.json").exists());
+        assert_eq!(
+            std::fs::read_to_string(current.join("addons.json")).unwrap(),
+            "[]"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_failed_legacy_file_copy_does_not_block_the_other_and_retries() {
+        let (legacy, current) = data_dirs("migrate-retry");
+        let settings = r#"{"theme":"ocean"}"#;
+        std::fs::write(legacy.join("settings.json"), settings).unwrap();
+        std::fs::write(legacy.join("addons.json"), "[]").unwrap();
+        std::fs::create_dir(current.join("settings.json.tmp")).unwrap();
+
+        migrate_legacy_data(&current).await;
+
+        assert!(!current.join("settings.json").exists());
+        assert_eq!(
+            std::fs::read_to_string(current.join("addons.json")).unwrap(),
+            "[]"
+        );
+
+        std::fs::remove_dir(current.join("settings.json.tmp")).unwrap();
+        std::fs::write(current.join("addons.json"), "[1]").unwrap();
+        migrate_legacy_data(&current).await;
+
+        assert_eq!(
+            std::fs::read_to_string(current.join("settings.json")).unwrap(),
+            settings
+        );
+        assert_eq!(
+            std::fs::read_to_string(current.join("addons.json")).unwrap(),
+            "[1]",
+            "a successful file is not copied again"
+        );
     }
 }

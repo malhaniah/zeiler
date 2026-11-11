@@ -166,13 +166,19 @@ fn parse_addresses(
     }
 }
 
+fn source_limit() -> IpcError {
+    IpcError::InvalidInput(format!("Zeiler keeps at most {MAX_SOURCES} playlists."))
+}
+
 /// Add a source: checked by loading its channels once, then its address goes to the
 /// keychain and the rest to `iptv.json`.
 #[tauri::command]
 pub async fn iptv_source_add(
+    profiles: State<'_, crate::state::AppState>,
     state: State<'_, IptvState>,
     source: SourceInput,
 ) -> Result<SourceView, IpcError> {
+    let origin_profile = profiles.profiles.read().await.active_id.clone();
     let name = source.name.trim();
     if name.is_empty() || name.chars().count() > 60 || name.chars().any(char::is_control) {
         return Err(IpcError::InvalidInput(
@@ -180,9 +186,7 @@ pub async fn iptv_source_add(
         ));
     }
     if state.store.read(|f| f.sources.len()).await >= MAX_SOURCES {
-        return Err(IpcError::InvalidInput(format!(
-            "Zeiler keeps at most {MAX_SOURCES} playlists."
-        )));
+        return Err(source_limit());
     }
     let (secret, host, user_agent) = parse_input(&source)?;
     let access = zeiler_iptv::Access {
@@ -198,9 +202,8 @@ pub async fn iptv_source_add(
 
     let id = uuid::Uuid::new_v4().to_string();
     let has_epg = secret.epg_url.is_some() || playlist_epg.is_some() || secret.xtream.is_some();
-    state.put_secret(&id, &secret).await;
     let entry = IptvSource {
-        id: id.clone(),
+        id,
         name: name.to_string(),
         kind: source.kind,
         host,
@@ -209,15 +212,58 @@ pub async fn iptv_source_add(
         allow_http: source.allow_http,
         favorites: Vec::new(),
     };
+    // the fetch may finish after a profile switch; commit only to the profile that began it
+    let _profile = profiles.profile_op.lock().await;
+    let active_profile = profiles.profiles.read().await.active_id.clone();
+    commit_source(
+        &state,
+        origin_profile.as_deref(),
+        active_profile.as_deref(),
+        entry,
+        secret,
+        channels,
+        playlist_epg,
+    )
+    .await
+}
+
+async fn commit_source(
+    state: &IptvState,
+    origin_profile: Option<&str>,
+    active_profile: Option<&str>,
+    entry: IptvSource,
+    secret: SourceSecret,
+    channels: Vec<zeiler_iptv::Channel>,
+    playlist_epg: Option<String>,
+) -> Result<SourceView, IpcError> {
+    if active_profile != origin_profile {
+        return Err(IpcError::Conflict(
+            "The active profile changed while this playlist was loading. Add it again in the current profile.".into(),
+        ));
+    }
+    let id = entry.id.clone();
+    let has_epg = entry.has_epg;
+    state.put_secret(&id, &secret).await;
     let stored = entry.clone();
-    if let Err(e) = state.store.update(move |f| f.sources.push(stored)).await {
+    let result = state
+        .store
+        .try_update(move |f| {
+            if f.sources.len() >= MAX_SOURCES {
+                return Err(source_limit());
+            }
+            f.sources.push(stored);
+            Ok(Some(()))
+        })
+        .await;
+    if let Err(e) = result {
         state.secrets.delete(&secret_key(&id)).await;
+        state.forget(&id).await;
         return Err(e);
     }
     state
         .remember(&id, Arc::new(channels), playlist_epg, has_epg)
         .await;
-    Ok(view(&state, entry).await)
+    Ok(view(state, entry).await)
 }
 
 #[tauri::command]
@@ -384,12 +430,27 @@ pub async fn iptv_resolve(
         .iter()
         .find(|c| c.id == channel_id)
         .ok_or_else(|| IpcError::NotFound("That channel is no longer in the playlist.".into()))?;
-    http_url(&channel.url, "channel's stream")?;
+    playback_request(&source, channel)
+}
+
+fn playback_request(
+    source: &IptvSource,
+    channel: &zeiler_iptv::Channel,
+) -> Result<PlaybackRequest, IpcError> {
+    let url = http_url(&channel.url, "channel's stream")?;
+    if url.scheme() == "http" && !source.allow_http {
+        return Err(IpcError::InvalidInput(
+            zeiler_iptv::unencrypted().to_string(),
+        ));
+    }
     Ok(PlaybackRequest {
         url: channel.url.clone(),
         title: Some(channel.name.clone()),
         headers: Vec::new(),
-        user_agent: channel.user_agent.clone().or(source.user_agent),
+        user_agent: channel
+            .user_agent
+            .clone()
+            .or_else(|| source.user_agent.clone()),
         referrer: channel.referrer.clone(),
         start_at_sec: None,
         options: Vec::new(),
@@ -418,6 +479,35 @@ mod tests {
             user_agent: None,
             allow_http: false,
         }
+    }
+
+    fn stored_source(id: &str) -> IptvSource {
+        IptvSource {
+            id: id.into(),
+            name: "Mine".into(),
+            kind: SourceKind::M3u,
+            host: "tv.example".into(),
+            has_epg: false,
+            user_agent: None,
+            allow_http: false,
+            favorites: Vec::new(),
+        }
+    }
+
+    fn source_secret() -> SourceSecret {
+        SourceSecret {
+            url: Some("https://tv.example/list.m3u".into()),
+            epg_url: None,
+            xtream: None,
+        }
+    }
+
+    async fn test_state(test: &str) -> IptvState {
+        let dir = crate::persist::tests::temp_dir(test);
+        let secrets = Arc::new(crate::secrets::Secrets::new(Arc::new(
+            crate::account::secrets::MemoryStore::default(),
+        )));
+        IptvState::load(&dir, secrets).await.unwrap()
     }
 
     #[test]
@@ -480,6 +570,111 @@ mod tests {
         let account = secret.xtream.unwrap();
         assert_eq!(account.server, "http://tv.example:8080");
         assert!(secret.url.is_none());
+    }
+
+    #[tokio::test]
+    async fn a_delayed_add_does_not_commit_to_another_profile() {
+        let state = test_state("iptv-add-profile-changed").await;
+        let result = commit_source(
+            &state,
+            Some("origin"),
+            Some("other"),
+            stored_source("new"),
+            source_secret(),
+            Vec::new(),
+            None,
+        )
+        .await;
+
+        assert!(matches!(result, Err(IpcError::Conflict(_))));
+        assert!(state.store.read(|f| f.sources.is_empty()).await);
+        assert_eq!(state.secrets.locate(&secret_key("new")).await, None);
+    }
+
+    #[tokio::test]
+    async fn a_delayed_add_rechecks_the_limit_and_deletes_its_secret() {
+        let state = test_state("iptv-add-limit-changed").await;
+        state
+            .store
+            .update(|f| {
+                f.sources = (0..MAX_SOURCES)
+                    .map(|n| stored_source(&format!("old-{n}")))
+                    .collect();
+            })
+            .await
+            .unwrap();
+
+        let result = commit_source(
+            &state,
+            Some("origin"),
+            Some("origin"),
+            stored_source("new"),
+            source_secret(),
+            Vec::new(),
+            None,
+        )
+        .await;
+
+        assert!(matches!(result, Err(IpcError::InvalidInput(_))));
+        assert_eq!(state.store.read(|f| f.sources.len()).await, MAX_SOURCES);
+        assert_eq!(state.secrets.locate(&secret_key("new")).await, None);
+    }
+
+    #[tokio::test]
+    async fn a_failed_add_deletes_its_new_secret() {
+        let state = test_state("iptv-add-write-failed").await;
+        let mut tmp = state.store.path().into_os_string();
+        tmp.push(".tmp");
+        std::fs::create_dir_all(std::path::PathBuf::from(tmp)).unwrap();
+
+        let result = commit_source(
+            &state,
+            Some("origin"),
+            Some("origin"),
+            stored_source("new"),
+            source_secret(),
+            Vec::new(),
+            None,
+        )
+        .await;
+
+        assert!(matches!(result, Err(IpcError::Storage(_))));
+        assert!(state.store.read(|f| f.sources.is_empty()).await);
+        assert_eq!(state.secrets.locate(&secret_key("new")).await, None);
+    }
+
+    #[test]
+    fn resolving_an_http_channel_requires_consent_even_for_an_https_playlist() {
+        let mut source = IptvSource {
+            id: "source".into(),
+            name: "Mine".into(),
+            kind: SourceKind::M3u,
+            host: "tv.example".into(),
+            has_epg: false,
+            user_agent: None,
+            allow_http: false,
+            favorites: Vec::new(),
+        };
+        let channel = zeiler_iptv::Channel {
+            id: "channel".into(),
+            tvg_id: None,
+            name: "News".into(),
+            logo: None,
+            group: None,
+            url: "http://cdn.example/live.m3u8".into(),
+            user_agent: None,
+            referrer: None,
+        };
+
+        assert!(matches!(
+            playback_request(&source, &channel),
+            Err(IpcError::InvalidInput(message)) if message.contains("unencrypted")
+        ));
+        source.allow_http = true;
+        assert_eq!(
+            playback_request(&source, &channel).unwrap().url,
+            channel.url
+        );
     }
 
     #[test]

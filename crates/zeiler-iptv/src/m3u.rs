@@ -8,10 +8,10 @@
 
 use std::collections::HashMap;
 
-use crate::{Channel, Playlist, stable_id};
+use crate::{Channel, IptvError, MAX_CHANNELS, Playlist, stable_id, too_many_channels};
 
 /// Parse a playlist. Lenient: anything that is not a channel is skipped.
-pub fn parse(text: &str) -> Playlist {
+pub fn parse(text: &str) -> Result<Playlist, IptvError> {
     let mut playlist = Playlist::default();
     let mut pending: Option<Pending> = None;
     let mut seen: HashMap<String, usize> = HashMap::new();
@@ -88,6 +88,9 @@ pub fn parse(text: &str) -> Playlist {
         if is_decorative(&name) {
             continue;
         }
+        if playlist.channels.len() >= MAX_CHANNELS {
+            return Err(too_many_channels());
+        }
         // not from the URL: some carry a token that changes on every refresh, and the
         // favourites keyed by these ids would be lost
         let attr = |k: &str| p.attrs.get(k).map(|v| v.trim()).filter(|v| !v.is_empty());
@@ -115,7 +118,7 @@ pub fn parse(text: &str) -> Playlist {
             referrer: p.referrer,
         });
     }
-    playlist
+    Ok(playlist)
 }
 
 fn is_http(url: &str) -> bool {
@@ -264,7 +267,7 @@ http://cdn.example/s2.ts
 
     #[test]
     fn channels_attributes_options_and_epg() {
-        let playlist = parse(SAMPLE);
+        let playlist = parse(SAMPLE).unwrap();
         assert_eq!(
             playlist.epg_url.as_deref(),
             Some("https://epg.example/guide.xml.gz")
@@ -285,7 +288,10 @@ http://cdn.example/s2.ts
         assert_eq!(sport.user_agent, None, "options belong to one entry");
         // the same URL and name twice: still two ids, both stable
         assert_ne!(playlist.channels[1].id, playlist.channels[2].id);
-        assert_eq!(parse(SAMPLE).channels[2].id, playlist.channels[2].id);
+        assert_eq!(
+            parse(SAMPLE).unwrap().channels[2].id,
+            playlist.channels[2].id
+        );
         assert!(
             !playlist.channels[0].id.contains("cdn.example"),
             "ids don't carry the URL"
@@ -294,10 +300,12 @@ http://cdn.example/s2.ts
         // a comma in the title; a token that changes the URL keeps the id
         let a = parse(
             "#EXTM3U\n#EXTINF:-1 tvg-id=\"x\" group-title=\"News\",CNN, International\nhttps://cdn.example/cnn.m3u8?token=1\n",
-        );
+        )
+        .unwrap();
         let b = parse(
             "#EXTM3U\n#EXTINF:-1 tvg-id=\"x\" group-title=\"News\",CNN, International\nhttps://cdn.example/cnn.m3u8?token=2\n",
-        );
+        )
+        .unwrap();
         assert_eq!(a.channels[0].name, "CNN, International");
         assert_eq!(a.channels[0].group.as_deref(), Some("News"));
         assert_eq!(a.channels[0].id, b.channels[0].id);
@@ -305,13 +313,15 @@ http://cdn.example/s2.ts
         // a second header without a guide keeps the first one's
         let merged = parse(
             "#EXTM3U url-tvg=\"https://e.example/g.xml\"\n#EXTINF:-1,A\nhttps://a.example/1\n#EXTM3U\n#EXTINF:-1,B\nhttps://a.example/2\n",
-        );
+        )
+        .unwrap();
         assert_eq!(merged.epg_url.as_deref(), Some("https://e.example/g.xml"));
 
         // an unbalanced quote: the title after the last comma still counts
         let odd = parse(
             "#EXTINF:-1 tvg-logo=\"http://x/a.png group-title=\"News\",CNN\nhttps://a.example/cnn\n",
-        );
+        )
+        .unwrap();
         assert_eq!(odd.channels[0].name, "CNN");
     }
 
@@ -343,11 +353,24 @@ http://cdn.example/s2.ts
 
     #[test]
     fn a_bare_url_list_still_parses() {
-        let playlist = parse("https://a.example/1.m3u8\nhttps://a.example/2.m3u8\n");
+        let playlist = parse("https://a.example/1.m3u8\nhttps://a.example/2.m3u8\n").unwrap();
         let names: Vec<_> = playlist.channels.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(names, ["1.m3u8", "2.m3u8"], "no #EXTINF: the file name");
-        let playlist = parse("#EXTM3U\n#EXTINF:5,Radio\nhttps://a.example/r.mp3\n");
+        let playlist = parse("#EXTM3U\n#EXTINF:5,Radio\nhttps://a.example/r.mp3\n").unwrap();
         assert_eq!(playlist.channels[0].name, "Radio");
         assert_eq!(playlist.epg_url, None);
+    }
+
+    #[test]
+    fn the_channel_limit_is_enforced_while_parsing() {
+        let mut text = String::from("#EXTM3U\n");
+        for n in 0..=MAX_CHANNELS {
+            text.push_str(&format!("https://a.example/{n}\n"));
+        }
+
+        let error = parse(&text).unwrap_err();
+        assert!(
+            matches!(error, IptvError::Source(message) if message.contains(&MAX_CHANNELS.to_string()))
+        );
     }
 }

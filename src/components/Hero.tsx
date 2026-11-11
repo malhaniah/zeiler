@@ -24,6 +24,10 @@ export function HeroCarousel({
   const hovered = useRef(false);
 
   useEffect(() => {
+    setActive((current) => Math.max(0, Math.min(current, items.length - 1)));
+  }, [items.length]);
+
+  useEffect(() => {
     if (items.length < 2 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const timer = setInterval(() => {
       if (!hovered.current && !document.hidden) {
@@ -32,6 +36,8 @@ export function HeroCarousel({
     }, autoMs);
     return () => clearInterval(timer);
   }, [items.length, autoMs]);
+
+  const safeActive = Math.max(0, Math.min(active, items.length - 1));
 
   if (items.length === 0) {
     return (
@@ -57,10 +63,10 @@ export function HeroCarousel({
         style={{ isolation: "isolate" }}
         onMouseEnter={() => (hovered.current = true)}
         onMouseLeave={() => (hovered.current = false)}
-        onClick={() => onOpen(items[active])}
+        onClick={() => onOpen(items[safeActive])}
       >
         {items.map((meta, i) => (
-          <Slide key={meta.id} meta={meta} active={i === active} variant={variant} rank={i + 1} typeLabel={typeLabel} onOpen={onOpen} />
+          <Slide key={meta.id} meta={meta} active={i === safeActive} variant={variant} rank={i + 1} typeLabel={typeLabel} onOpen={onOpen} />
         ))}
       </section>
       {items.length > 1 && (
@@ -71,7 +77,7 @@ export function HeroCarousel({
               aria-label={`Slide ${i + 1}`}
               onClick={() => setActive(i)}
               className={`h-1.5 rounded-full transition-all duration-300 ${
-                i === active ? "w-12 bg-ink" : "w-6 bg-ink-muted/70 hover:bg-ink-muted"
+                i === safeActive ? "w-12 bg-ink" : "w-6 bg-ink-muted/70 hover:bg-ink-muted"
               }`}
             />
           ))}

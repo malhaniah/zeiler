@@ -91,7 +91,7 @@ impl IptvClient {
         blocking(move || {
             let bytes = unpack(bytes, PLAYLIST_MAX_BYTES)?;
             let text = String::from_utf8_lossy(&bytes);
-            let playlist = m3u::parse(&text);
+            let playlist = m3u::parse(&text)?;
             // a bare list of stream URLs is a playlist too; anything else is not
             if playlist.channels.is_empty()
                 && !text
