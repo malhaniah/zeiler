@@ -201,7 +201,7 @@ export function DetailView({
   const backdrop = meta.background ?? meta.poster;
 
   return (
-    <main className="absolute inset-0 z-30 overflow-y-auto bg-canvas">
+    <main className="animate-view-in absolute inset-0 z-30 overflow-y-auto bg-canvas">
       {/* hero */}
       <section className="relative">
         <div className="relative h-[76svh] min-h-[540px] overflow-hidden sm:h-[78vh] sm:min-h-[640px]">
@@ -369,8 +369,7 @@ function PlayButton({
       window.removeEventListener("keydown", onKey, true);
     };
   }, [open]);
-  const pill =
-    "flex h-12 items-center bg-ink text-[15px] font-semibold text-canvas shadow-[0_8px_24px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.65),inset_0_-1px_0_rgba(0,0,0,0.18)]";
+  const pill = "button-primary";
   return (
     <div ref={ref} className="relative flex transition-transform duration-200 hover:scale-[1.03]">
       <button

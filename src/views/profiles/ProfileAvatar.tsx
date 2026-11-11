@@ -28,7 +28,7 @@ export function ProfileAvatar({ profile, size = 40 }: { profile: Pick<ProfileVie
   }
   return (
     <div
-      className="flex items-center justify-center font-semibold text-canvas"
+      className="flex items-center justify-center font-brand font-semibold text-canvas"
       style={{ ...style, background: ring, fontSize: size * 0.42 }}
     >
       {profile.name.trim().slice(0, 1).toUpperCase() || "?"}

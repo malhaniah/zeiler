@@ -783,7 +783,7 @@ function UpdatesCard() {
                   setState({ kind: "error", message: errorMessage(e) }),
                 )
               }
-              className="flex h-10 items-center rounded-xl bg-ink px-4 text-[12.5px] font-semibold text-canvas transition-transform hover:scale-[1.02] active:scale-[0.97]"
+              className="button-primary h-10 min-h-0 px-4 text-[12.5px]"
             >
               Restart and update now
             </button>

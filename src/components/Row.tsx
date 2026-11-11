@@ -72,7 +72,10 @@ export function Row({
 
   const scrollBy = (direction: 1 | -1) => {
     const track = trackRef.current;
-    if (track) track.scrollBy({ left: direction * track.clientWidth, behavior: "smooth" });
+    if (track) {
+      const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+      track.scrollBy({ left: direction * track.clientWidth, behavior });
+    }
   };
 
   if (children.length === 0) return null;

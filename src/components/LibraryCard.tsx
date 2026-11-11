@@ -40,7 +40,7 @@ export function LibraryCard({
   const progress = resumeFraction(entry);
   const poster = (
     <div
-      className={`relative w-full transition-transform duration-300 ${SILK} group-hover:-translate-y-2`}
+      className={`relative w-full transition-transform duration-300 ${SILK} group-hover:-translate-y-1 group-hover:scale-[1.025] group-focus-visible:-translate-y-1 group-focus-visible:scale-[1.025]`}
     >
       <Poster
         src={entry.poster}
@@ -125,7 +125,7 @@ export function LibraryCard({
           onClick={onDismiss}
           aria-label={`Remove ${entry.name} from Continue Watching`}
           title="Remove from Continue Watching"
-          className={`absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-edge-soft bg-canvas/90 text-ink-muted opacity-0 shadow-[0_3px_8px_rgba(0,0,0,0.45)] transition-[opacity,translate,color] duration-300 ${SILK} hover:text-ink focus-visible:opacity-100 group-hover:-translate-y-2 group-hover:opacity-100 ${NO_HOVER_SHOW}`}
+          className={`absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-edge-soft bg-canvas/90 text-ink-muted opacity-0 shadow-[0_3px_8px_rgba(0,0,0,0.45)] transition-[opacity,translate,color] duration-300 ${SILK} hover:text-ink focus-visible:opacity-100 group-hover:-translate-y-1 group-hover:scale-[1.025] group-focus-visible:-translate-y-1 group-focus-visible:scale-[1.025] group-hover:opacity-100 ${NO_HOVER_SHOW}`}
         >
           <X size={14} strokeWidth={2.4} />
         </button>

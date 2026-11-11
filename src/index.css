@@ -1,31 +1,61 @@
 @import "tailwindcss";
 
-/*
- * Design tokens mirroring Harbor's system (github.com/harborstremio/harbor, MIT) so its
- * component recipes port 1:1. Fonts use bundled-free system stacks (no CDN).
- */
+@font-face {
+  font-family: "Sora";
+  src: url("/fonts/sora-600.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 500 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Sora";
+  src: url("/fonts/sora-700.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Manrope";
+  src: url("/fonts/manrope-400.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Manrope";
+  src: url("/fonts/manrope-600.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 600 800;
+  font-display: swap;
+}
+
+/* Nebula, adapted for Zeiler. Secondary text is lifted above WCAG AA on sea-ink. */
 @theme {
-  --color-canvas: oklch(0.18 0.004 260);
-  --color-surface: oklch(0.22 0.004 260);
-  --color-elevated: oklch(0.27 0.004 260);
-  --color-raised: oklch(0.32 0.004 260);
-  --color-ink: oklch(0.97 0.003 260);
-  --color-ink-muted: oklch(0.72 0.003 260);
-  --color-ink-subtle: oklch(0.5 0.003 260);
-  --color-edge: oklch(0.36 0.004 260 / 0.55);
-  --color-edge-soft: oklch(0.36 0.004 260 / 0.25);
-  --color-accent: oklch(0.78 0.13 60);
-  --color-accent-soft: oklch(0.78 0.13 60 / 0.18);
-  --color-danger: oklch(0.55 0.18 25);
+  --color-canvas: #0a161a;
+  --color-surface: #122129;
+  --color-elevated: #1a2e38;
+  --color-raised: #233c48;
+  --color-ink: #f4efe3;
+  --color-ink-muted: #b0a998;
+  --color-ink-subtle: #aaa18d;
+  --color-edge: rgb(46 74 87 / 0.65);
+  --color-edge-soft: rgb(46 74 87 / 0.3);
+  --color-accent: #d9a63a;
+  --color-accent-soft: rgb(217 166 58 / 0.18);
+  --color-on-accent: #1d1503;
+  --color-danger: #e8553d;
 
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 20px;
-  --radius-2xl: 28px;
+  --gradient-sunset: linear-gradient(135deg, #e8bc5c 0%, #e8763a 100%);
 
-  --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
-  --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+
+  --font-display: "Sora", "Segoe UI", system-ui, sans-serif;
+  --font-brand: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --font-sans: "Manrope", "Segoe UI", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Cascadia Mono", ui-monospace, monospace;
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -57,6 +87,11 @@ body {
   cursor: default;
 }
 
+::selection {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
 @layer base {
   button,
   input,
@@ -67,6 +102,10 @@ body {
     background: none;
     border: 0;
   }
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
   button {
     cursor: pointer;
   }
@@ -74,6 +113,38 @@ body {
     display: block;
     user-select: none;
     -webkit-user-drag: none;
+  }
+}
+
+@layer components {
+  .button-primary {
+    display: inline-flex;
+    min-height: 48px;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border-radius: 8px;
+    padding: 0 24px;
+    background: var(--gradient-sunset);
+    color: var(--color-on-accent);
+    font-size: 15px;
+    font-weight: 700;
+    box-shadow: 0 8px 24px rgb(232 118 58 / 0.16);
+    transition: transform 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
+  }
+  .button-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 28px rgb(232 118 58 / 0.24);
+  }
+  .button-primary:active {
+    transform: translateY(0) scale(0.98);
+  }
+  .button-primary:disabled {
+    background: var(--color-raised);
+    color: var(--color-ink-subtle);
+    box-shadow: none;
+    cursor: progress;
+    transform: none;
   }
 }
 
@@ -97,29 +168,35 @@ a:focus-visible,
 select:focus-visible,
 [tabindex]:focus-visible {
   outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+  outline-offset: 4px;
 }
-
-/* ---- animation utilities (Harbor's) ------------------------------------------------ */
 
 @keyframes zeiler-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+@keyframes zeiler-view-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 @keyframes zeiler-step-in {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 @keyframes zeiler-modal-in {
-  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  from { opacity: 0; transform: scale(0.97) translateY(8px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
+@keyframes zeiler-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 @keyframes zeiler-nudge-in {
-  from { opacity: 0; transform: translateY(-12px); }
+  from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 @keyframes zeiler-popover-in {
-  from { opacity: 0; transform: scale(0.96) translateY(-6px); }
+  from { opacity: 0; transform: scale(0.97) translateY(-5px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 @keyframes zeiler-loader-pulse {
@@ -131,20 +208,30 @@ select:focus-visible,
   to { opacity: 1; transform: translateX(0); }
 }
 
-.animate-fade-in { animation: zeiler-fade-in 350ms var(--ease-out) both; }
+.animate-fade-in { animation: zeiler-fade-in 250ms var(--ease-out) both; }
+.animate-view-in { animation: zeiler-view-in 340ms var(--ease-out) both; }
 .animate-step-in { animation: zeiler-step-in 420ms var(--ease-out) both; }
-.animate-modal-in { animation: zeiler-modal-in 480ms var(--ease-out) both; }
-.animate-nudge-in { animation: zeiler-nudge-in 380ms var(--ease-out) both; }
-.animate-popover-in { animation: zeiler-popover-in 220ms var(--ease-out) both; transform-origin: top right; }
+.animate-modal-in { animation: zeiler-modal-in 320ms var(--ease-out) both; }
+.animate-nudge-in { animation: zeiler-nudge-in 320ms var(--ease-out) both; }
+.animate-popover-in { animation: zeiler-popover-in 200ms var(--ease-out) both; transform-origin: top right; }
 .animate-loader-pulse { animation: zeiler-loader-pulse 2.4s var(--ease-in-out) infinite; }
 .animate-drawer-in { animation: zeiler-drawer-in 250ms var(--ease-out) both; }
 
-@media (prefers-reduced-motion: reduce) {
-  .animate-loader-pulse,
-  .animate-drawer-in { animation: none; }
+dialog::backdrop {
+  animation: zeiler-backdrop-in 220ms var(--ease-out) both;
 }
 
-/* hide scrollbar utility (sidebar nav, rows) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 .no-scrollbar {
   scrollbar-width: none;
 }

@@ -51,6 +51,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## Bundled fonts (SIL Open Font License)
+
+The Nebula typography uses **Sora** and **Manrope**, bundled locally in `public/fonts`
+rather than loaded from a font CDN. Their unmodified SIL Open Font License texts ship beside
+the font files as [Sora-OFL.txt](public/fonts/Sora-OFL.txt) and
+[Manrope-OFL.txt](public/fonts/Manrope-OFL.txt).
+
 ## Harbor (MIT)
 
 Zeiler's built-in player follows the Tauri + libmpv technique shipped by **Harbor**
@@ -81,7 +88,7 @@ Adapted files:
 - `src/pages/player/StatsOverlay.tsx` — the stats overlay's property list
   (`stats-overlay.tsx`), and `src-tauri/src/commands/mpv/audio.rs` — the volume
   normalization filter's values (`mpv.ts`)
-- `src/index.css`, `src/lib/theme.ts` — design tokens and theme presets
+- `src/index.css`, `src/lib/theme.ts` — earlier design tokens and the theme-preset model
 - `src/lib/view.tsx`, `src/components/{ui,cards,Row,Hero,Poster,GenreTiles,LibraryCard}.tsx`,
   `src/views/{Discover,Browse}.tsx` — navigation model and UI recipes
 - `crates/zeiler-addon/src/adult.rs` — the adult-content term lists (`adult-filter.ts`)

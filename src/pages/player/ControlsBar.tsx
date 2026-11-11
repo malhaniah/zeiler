@@ -155,7 +155,7 @@ function TimeReadout({ clock }: { clock: PlaybackClock }) {
   const position = useClock(clock, (s) => Math.floor(Math.max(0, s.timePos)));
   const duration = useClock(clock, (s) => Math.floor(Math.max(0, s.duration)));
   return (
-    <span className="font-mono text-xs text-ink-muted">
+    <span className="font-display text-xs tabular-nums text-ink-muted">
       {formatTime(position)} / {duration > 0 ? formatTime(duration) : "--:--"}
     </span>
   );
@@ -191,7 +191,7 @@ function SeekBar({
       : [...chapters].reverse().find((c) => c.time <= hover)?.title?.trim() || null;
   return (
     <div
-      className="relative flex h-3 items-center"
+      className="group/seek relative flex h-11 items-center"
       onMouseMove={(e) => {
         if (duration <= 0) return;
         const rect = e.currentTarget.getBoundingClientRect();
@@ -211,7 +211,7 @@ function SeekBar({
           {hoverChapter && <span className="text-ink-muted"> · {hoverChapter}</span>}
         </div>
       )}
-      <div className="absolute inset-x-0 h-1 overflow-hidden rounded-full bg-edge">
+      <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-edge transition-[height] duration-150 group-hover/seek:h-1.5 group-focus-within/seek:h-1.5">
         {duration > 0 && cachedUntil > 0 && (
           <div
             className="absolute inset-y-0 left-0 bg-ink-subtle/70"
@@ -248,7 +248,7 @@ function SeekBar({
         max={max}
         step={0.1}
         value={value}
-        className="absolute inset-0 h-3 w-full cursor-pointer appearance-none bg-transparent disabled:cursor-default [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent"
+        className="absolute inset-0 h-11 w-full cursor-pointer appearance-none bg-transparent disabled:cursor-default [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:opacity-0 [&::-webkit-slider-thumb]:transition-opacity group-hover/seek:[&::-webkit-slider-thumb]:opacity-100 group-focus-within:[&::-webkit-slider-thumb]:opacity-100"
         onInput={(e) => {
           setScrub(Number(e.currentTarget.value));
           onPoke();
@@ -303,7 +303,7 @@ function VolumeControl({
         max={Math.max(ceiling, level)}
         step={1}
         value={mute ? 0 : level}
-        className="w-24 cursor-pointer accent-(--color-accent)"
+        className="h-11 w-24 cursor-pointer accent-(--color-accent)"
         onInput={(e) => onVolume(Number(e.currentTarget.value))}
       />
     </div>

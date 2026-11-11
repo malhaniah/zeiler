@@ -154,7 +154,7 @@ export function UpdatePrompt() {
               disabled={starting}
               aria-busy={starting}
               onClick={install}
-              className="h-11 flex-1 rounded-xl bg-ink px-4 text-[13px] font-semibold text-canvas transition-transform hover:scale-[1.01] active:scale-[0.98] disabled:cursor-progress disabled:opacity-60"
+              className="button-primary flex-1"
             >
               {starting ? "Starting update…" : "Restart and update"}
             </button>
