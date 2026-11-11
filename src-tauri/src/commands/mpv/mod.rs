@@ -344,6 +344,9 @@ pub async fn player_start(
     context: Option<serde_json::Value>,
 ) -> Result<StartResult, IpcError> {
     check_request(&mut request)?;
+    // Serialize startup with profile selection: the tracker, title preferences and
+    // active session must all belong to the profile that initiated playback.
+    let _profile = state.profile_op.lock().await;
     let settings = state.settings.read().await.clone();
     let preference = match backend.unwrap_or_default() {
         PlayerBackend::Auto => settings.player_backend,

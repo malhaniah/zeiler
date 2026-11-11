@@ -4,7 +4,8 @@
 //! Every persisted file follows the same rules:
 //! - missing file → `T::default()`;
 //! - unparseable file → moved aside to `*.json.corrupt.bak` (so the next write cannot
-//!   overwrite the user's real data), then `T::default()`;
+//!   overwrite the user's real data), then `T::default()`; if that move fails, reading
+//!   fails and the original bytes stay where they are;
 //! - any other IO error (permissions, AV sharing violation) is returned, so startup
 //!   fails rather than silently losing state;
 //! - writes go to `*.json.tmp` first, are flushed to disk, then renamed over the target.
@@ -26,7 +27,13 @@ pub(crate) async fn read_json<T: DeserializeOwned + Default>(path: &Path) -> any
             Ok(value) => Ok(value),
             Err(e) => {
                 let backup = path.with_extension("json.corrupt.bak");
-                let _ = tokio::fs::rename(path, &backup).await;
+                if let Err(rename_error) = tokio::fs::rename(path, &backup).await {
+                    return Err(anyhow::Error::new(rename_error).context(format!(
+                        "failed to move corrupt {} to {}; the original file was left untouched",
+                        path.display(),
+                        backup.display()
+                    )));
+                }
                 warn!(
                     path = %path.display(),
                     backup = %backup.display(),
@@ -215,6 +222,20 @@ pub(crate) mod tests {
             std::fs::read_to_string(dir.join("counter.json.corrupt.bak")).unwrap(),
             "{ not json"
         );
+    }
+
+    #[tokio::test]
+    async fn corrupt_file_backup_failure_returns_an_error_and_preserves_it() {
+        let dir = temp_dir("persist-corrupt-backup-fails");
+        let path = dir.join("counter.json");
+        let original = b"{ not json";
+        std::fs::write(&path, original).unwrap();
+        std::fs::create_dir(dir.join("counter.json.corrupt.bak")).unwrap();
+
+        let result = read_json::<Counter>(&path).await;
+
+        assert!(result.is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), original);
     }
 
     #[tokio::test]

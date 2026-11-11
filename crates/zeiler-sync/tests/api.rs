@@ -167,7 +167,11 @@ async fn link_codes_are_created_then_pending_then_exchanged() {
 
 #[tokio::test]
 async fn the_addon_collection_round_trips_unchanged() {
-    let collection: Value = serde_json::from_str(COLLECTION).unwrap();
+    let mut collection: Value = serde_json::from_str(COLLECTION).unwrap();
+    collection["addons"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|addon| addon.get("transportUrl").is_some());
     let (api, seen) = mock(vec![
         ("/api/addonCollectionGet", json!({ "result": collection })),
         (
@@ -177,19 +181,29 @@ async fn the_addon_collection_round_trips_unchanged() {
     ])
     .await;
     let got = api.addon_collection_get(&key()).await.unwrap();
-    assert_eq!(got.addons.len(), 3, "the malformed entry is skipped");
+    assert_eq!(got.addons.len(), 3);
     api.addon_collection_set(&key(), &got.addons).await.unwrap();
     let seen = seen.lock().unwrap().clone();
     assert_eq!(
         seen[0].1,
         json!({ "type": "AddonCollectionGet", "authKey": "test-auth-key", "update": true })
     );
-    // what goes back is exactly what came in (minus the unreadable entry)
     let sent = &seen[1].1;
     assert_eq!(sent["type"], "AddonCollectionSet");
-    let mut expected = collection["addons"].as_array().unwrap().clone();
-    expected.retain(|a| a.get("transportUrl").is_some());
-    assert_eq!(sent["addons"], Value::Array(expected));
+    assert_eq!(sent["addons"], collection["addons"]);
+}
+
+#[tokio::test]
+async fn a_malformed_addon_entry_refuses_the_collection_instead_of_dropping_it() {
+    let collection: Value = serde_json::from_str(COLLECTION).unwrap();
+    let (api, seen) = mock(vec![(
+        "/api/addonCollectionGet",
+        json!({ "result": collection }),
+    )])
+    .await;
+
+    assert!(api.addon_collection_get(&key()).await.is_err());
+    assert_eq!(seen.lock().unwrap().len(), 1, "nothing was written");
 }
 
 #[tokio::test]

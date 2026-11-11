@@ -7,10 +7,10 @@
 //! - While running, Zeiler re-checks every few hours and downloads quietly into the
 //!   cache; the UI shows that the update is ready and will install on next launch.
 //!
-//! Packages are signature-verified by the plugin inside `install()`, so a cached
-//! package is checked against the signature of the freshly fetched update manifest.
+//! Packages are signature-verified by the plugin before a cached package is reused or
+//! reported as ready, and again inside `install()`.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use serde::Serialize;
@@ -39,21 +39,60 @@ fn cached_package(app: &AppHandle, version: &str) -> Option<PathBuf> {
     cache_dir(app).map(|d| d.join(format!("{version}.pkg")))
 }
 
-/// Download `update` into the cache unless it is already there.
-async fn ensure_downloaded(app: &AppHandle, update: &Update) -> anyhow::Result<Vec<u8>> {
-    let path = cached_package(app, &update.version)
-        .ok_or_else(|| anyhow::anyhow!("no cache directory"))?;
-    if let Ok(bytes) = tokio::fs::read(&path).await {
+async fn read_verified_package(
+    path: &Path,
+    verify: impl FnOnce(&[u8]) -> tauri_plugin_updater::Result<()>,
+) -> Option<Vec<u8>> {
+    let bytes = tokio::fs::read(path).await.ok()?;
+    match verify(&bytes) {
+        Ok(()) => Some(bytes),
+        Err(error) => {
+            warn!(path = %path.display(), "discarding invalid cached update: {error}");
+            let _ = tokio::fs::remove_file(path).await;
+            None
+        }
+    }
+}
+
+async fn ensure_downloaded_with<V, D, F>(
+    path: &Path,
+    verify: V,
+    download: D,
+) -> anyhow::Result<Vec<u8>>
+where
+    V: FnOnce(&[u8]) -> tauri_plugin_updater::Result<()>,
+    D: FnOnce() -> F,
+    F: Future<Output = tauri_plugin_updater::Result<Vec<u8>>>,
+{
+    if let Some(bytes) = read_verified_package(path, verify).await {
         return Ok(bytes);
     }
-    let bytes = update.download(|_, _| {}, || {}).await?;
+    let bytes = download().await?;
     if let Some(dir) = path.parent() {
         // start clean: only the newest package is kept
         let _ = tokio::fs::remove_dir_all(dir).await;
         tokio::fs::create_dir_all(dir).await?;
     }
-    tokio::fs::write(&path, &bytes).await?;
+    let temporary = path.with_extension("pkg.tmp");
+    tokio::fs::write(&temporary, &bytes).await?;
+    tokio::fs::rename(temporary, path).await?;
     Ok(bytes)
+}
+
+async fn ensure_downloaded_at(path: &Path, update: &Update) -> anyhow::Result<Vec<u8>> {
+    ensure_downloaded_with(
+        path,
+        |bytes| update.verify(bytes),
+        || update.download(|_, _| {}, || {}),
+    )
+    .await
+}
+
+/// Download `update` into the cache unless it is already there and verified.
+async fn ensure_downloaded(app: &AppHandle, update: &Update) -> anyhow::Result<Vec<u8>> {
+    let path = cached_package(app, &update.version)
+        .ok_or_else(|| anyhow::anyhow!("no cache directory"))?;
+    ensure_downloaded_at(&path, update).await
 }
 
 /// Install a verified package and come back up on the new version. On Windows the
@@ -143,18 +182,18 @@ fn updates_disabled_in_dev() -> Result<(), IpcError> {
 #[tauri::command]
 pub async fn update_status(app: AppHandle) -> Result<UpdateStatus, IpcError> {
     let current = app.package_info().version.to_string();
-    let mut ready = None;
-    if let Some(dir) = cache_dir(&app)
-        && let Ok(mut entries) = tokio::fs::read_dir(dir).await
-    {
-        while let Ok(Some(entry)) = entries.next_entry().await {
-            if let Some(version) = entry.file_name().to_string_lossy().strip_suffix(".pkg")
-                && version != current
-            {
-                ready = Some(version.to_string());
+    let ready = match check(&app).await {
+        Ok(Some(update)) if update.version != current => {
+            if let Some(path) = cached_package(&app, &update.version) {
+                read_verified_package(&path, |bytes| update.verify(bytes))
+                    .await
+                    .map(|_| update.version.clone())
+            } else {
+                None
             }
         }
-    }
+        _ => None,
+    };
     Ok(UpdateStatus { current, ready })
 }
 
@@ -190,4 +229,73 @@ pub async fn update_install_now(app: AppHandle) -> Result<(), IpcError> {
         .map_err(|e| IpcError::Storage(format!("couldn't download the update: {e:#}")))?;
     install_and_restart(&app, &update, &bytes)
         .map_err(|e| IpcError::Storage(format!("couldn't install the update: {e:#}")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+
+    fn verify(bytes: &[u8]) -> tauri_plugin_updater::Result<()> {
+        if bytes == b"test" {
+            Ok(())
+        } else {
+            Err(tauri_plugin_updater::Error::Network(
+                "invalid test signature".into(),
+            ))
+        }
+    }
+
+    #[tokio::test]
+    async fn valid_cached_package_is_reused_without_download() {
+        let dir = crate::persist::tests::temp_dir("updater-valid-cache");
+        let path = dir.join("2.0.0.pkg");
+        tokio::fs::write(&path, b"test").await.unwrap();
+
+        let bytes = ensure_downloaded_with(&path, verify, || async {
+            panic!("verified cache must not download")
+        })
+        .await
+        .unwrap();
+
+        assert_eq!(bytes, b"test");
+    }
+
+    #[tokio::test]
+    async fn corrupt_cached_package_is_not_ready_and_is_deleted() {
+        let dir = crate::persist::tests::temp_dir("updater-corrupt-status");
+        let path = dir.join("2.0.0.pkg");
+        tokio::fs::write(&path, b"truncated").await.unwrap();
+
+        let bytes = read_verified_package(&path, verify).await;
+
+        assert!(bytes.is_none());
+        assert!(!path.exists());
+    }
+
+    #[tokio::test]
+    async fn corrupt_cache_is_redownloaded_and_temporary_file_is_not_ready() {
+        let dir = crate::persist::tests::temp_dir("updater-corrupt-redownload");
+        let path = dir.join("2.0.0.pkg");
+        let temporary = path.with_extension("pkg.tmp");
+        tokio::fs::write(&path, b"truncated").await.unwrap();
+        tokio::fs::write(&temporary, b"test").await.unwrap();
+        let downloads = Arc::new(AtomicUsize::new(0));
+        let requested = downloads.clone();
+
+        let bytes = ensure_downloaded_with(&path, verify, move || async move {
+            requested.fetch_add(1, Ordering::SeqCst);
+            Ok(b"test".to_vec())
+        })
+        .await
+        .unwrap();
+
+        assert_eq!(bytes, b"test");
+        assert_eq!(downloads.load(Ordering::SeqCst), 1);
+        assert_eq!(tokio::fs::read(&path).await.unwrap(), b"test");
+        assert!(!temporary.exists());
+    }
 }

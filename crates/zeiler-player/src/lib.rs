@@ -354,6 +354,8 @@ pub fn build_mpv_args(request: &PlaybackRequest) -> Vec<String> {
         "--force-window=immediate".to_string(),
         "--keep-open=yes".to_string(),
         "--playlist=-".to_string(),
+        // Addon-supplied URLs must not reach yt-dlp and its process list.
+        "--ytdl=no".to_string(),
         // mpv would print the stream URL (which can carry an account) on the stdout
         // Zeiler shares with it
         "--really-quiet".to_string(),
@@ -502,10 +504,19 @@ impl Player {
             .stdin(Stdio::piped())
             .kill_on_drop(false)
             .spawn()?;
-        if let Some(mut stdin) = child.stdin.take() {
-            stdin.write_all(request.url.as_bytes()).await?;
-            stdin.write_all(b"\n").await?;
-            stdin.shutdown().await?;
+        let write_result = async {
+            if let Some(mut stdin) = child.stdin.take() {
+                stdin.write_all(request.url.as_bytes()).await?;
+                stdin.write_all(b"\n").await?;
+                stdin.shutdown().await?;
+            }
+            Ok::<(), std::io::Error>(())
+        }
+        .await;
+        if let Err(error) = write_result {
+            let _ = child.start_kill();
+            let _ = child.wait().await;
+            return Err(error.into());
         }
         // Swap atomically under the lock so concurrent plays can never orphan a child,
         // then stop whatever was playing before.
@@ -546,8 +557,69 @@ mod tests {
         );
         assert!(args.contains(&"--start=42.5".to_string()));
         assert!(args.contains(&"--resume-playback=no".to_string()));
+        assert!(args.contains(&"--ytdl=no".to_string()));
         // the URL (and its credentials) must never be an argument
         assert!(args.iter().all(|a| !a.contains("secret")));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_stdin_failure_kills_and_reaps_the_untracked_fallback() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir =
+            std::env::temp_dir().join(format!("zeiler-fallback-stdin-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let binary = dir.join("mpv");
+        let pid_file = dir.join("pid");
+        std::fs::write(
+            &binary,
+            format!(
+                "#!/bin/sh\necho $$ > '{}'\nexec 0<&-\nexec sleep 1000\n",
+                pid_file.display()
+            ),
+        )
+        .unwrap();
+        let mut permissions = std::fs::metadata(&binary).unwrap().permissions();
+        permissions.set_mode(0o755);
+        std::fs::set_permissions(&binary, permissions).unwrap();
+
+        let player = Player::new(Some(&binary));
+        let request = PlaybackRequest {
+            // Larger than a pipe buffer: the write cannot finish before the child
+            // closes stdin, so this reliably tests the error path rather than a race.
+            url: format!("https://example.invalid/{}", "x".repeat(1024 * 1024)),
+            ..PlaybackRequest::default()
+        };
+        let result = player.play(&request).await;
+        let pid: i32 = std::fs::read_to_string(&pid_file)
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap();
+        struct KillOnDrop(i32);
+        impl Drop for KillOnDrop {
+            fn drop(&mut self) {
+                // SAFETY: this is the fake mpv process spawned above.
+                unsafe {
+                    libc::kill(self.0, libc::SIGKILL);
+                }
+            }
+        }
+        let _guard = KillOnDrop(pid);
+
+        assert!(matches!(result, Err(PlayerError::Spawn(_))));
+        // kill(pid, 0) also succeeds for a zombie, so ESRCH proves the child was reaped.
+        // SAFETY: signal 0 only checks whether this PID exists.
+        let status = unsafe { libc::kill(pid, 0) };
+        assert_eq!(status, -1);
+        assert_eq!(
+            std::io::Error::last_os_error().raw_os_error(),
+            Some(libc::ESRCH)
+        );
+        drop(_guard);
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

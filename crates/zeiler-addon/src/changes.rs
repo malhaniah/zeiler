@@ -41,10 +41,27 @@ fn resource_names(m: &Manifest) -> BTreeSet<String> {
     m.resources.iter().map(|r| r.name().to_string()).collect()
 }
 
-fn catalog_keys(m: &Manifest) -> BTreeSet<String> {
-    m.catalogs
+fn catalog_keys(catalogs: &[crate::manifest::ManifestCatalog]) -> BTreeSet<String> {
+    catalogs
         .iter()
         .map(|c| format!("{} “{}”", c.r#type, c.display_name()))
+        .collect()
+}
+
+fn catalog_details(m: &Manifest) -> BTreeSet<String> {
+    m.catalogs
+        .iter()
+        .map(|c| ("catalog", c))
+        .chain(m.addon_catalogs.iter().map(|c| ("addon_catalog", c)))
+        .map(|(resource, c)| {
+            format!(
+                "{resource}:{}:{}:{}:{}",
+                c.r#type,
+                c.id,
+                c.display_name(),
+                serde_json::to_string(&c.extra_props()).unwrap()
+            )
+        })
         .collect()
 }
 
@@ -143,7 +160,7 @@ pub fn manifest_changes(old: &Manifest, new: &Manifest) -> ManifestChanges {
         }
     }
 
-    let (old_cat, new_cat) = (catalog_keys(old), catalog_keys(new));
+    let (old_cat, new_cat) = (catalog_keys(&old.catalogs), catalog_keys(&new.catalogs));
     let added: BTreeSet<_> = new_cat.difference(&old_cat).cloned().collect();
     let removed: BTreeSet<_> = old_cat.difference(&new_cat).cloned().collect();
     if !added.is_empty() {
@@ -151,6 +168,25 @@ pub fn manifest_changes(old: &Manifest, new: &Manifest) -> ManifestChanges {
     }
     if !removed.is_empty() {
         capability.push(format!("Removed catalogs: {}.", list(&removed)));
+    }
+
+    let (old_addon_cat, new_addon_cat) = (
+        catalog_keys(&old.addon_catalogs),
+        catalog_keys(&new.addon_catalogs),
+    );
+    let added: BTreeSet<_> = new_addon_cat.difference(&old_addon_cat).cloned().collect();
+    let removed: BTreeSet<_> = old_addon_cat.difference(&new_addon_cat).cloned().collect();
+    if !added.is_empty() {
+        capability.push(format!("New addon catalogs: {}.", list(&added)));
+    }
+    if !removed.is_empty() {
+        capability.push(format!("Removed addon catalogs: {}.", list(&removed)));
+    }
+    if old_cat == new_cat
+        && old_addon_cat == new_addon_cat
+        && catalog_details(old) != catalog_details(new)
+    {
+        capability.push("Changes catalog ids or filters.".into());
     }
 
     if old.version != new.version {
@@ -253,6 +289,60 @@ mod tests {
                 .changes
                 .contains(&"New catalogs: series “Top”.".to_string())
         );
+    }
+
+    #[test]
+    fn changed_catalog_ids_and_extras_are_capability_changes() {
+        let old = manifest(json!({}));
+        for new in [
+            json!({
+                "catalogs": [{ "type": "movie", "id": "other", "name": "Top" }]
+            }),
+            json!({
+                "catalogs": [{
+                    "type": "movie", "id": "top", "name": "Top",
+                    "extra": [{ "name": "genre", "options": ["Action"] }]
+                }]
+            }),
+        ] {
+            let changes = manifest_changes(&old, &manifest(new.clone()));
+            assert!(changes.capabilities_changed, "{new}");
+            assert!(!changes.requires_review, "{new}");
+            assert_eq!(changes.changes, ["Changes catalog ids or filters."]);
+        }
+    }
+
+    #[test]
+    fn addon_catalog_additions_removals_and_changes_are_capability_changes() {
+        let old = manifest(json!({
+            "addonCatalogs": [{ "type": "addon", "id": "one", "name": "Directory" }]
+        }));
+        let added = manifest(json!({
+            "addonCatalogs": [
+                { "type": "addon", "id": "one", "name": "Directory" },
+                { "type": "addon", "id": "two", "name": "More" }
+            ]
+        }));
+        let changes = manifest_changes(&old, &added);
+        assert!(changes.capabilities_changed);
+        assert_eq!(changes.changes, ["New addon catalogs: addon “More”."]);
+
+        let removed = manifest_changes(&old, &manifest(json!({})));
+        assert!(removed.capabilities_changed);
+        assert_eq!(
+            removed.changes,
+            ["Removed addon catalogs: addon “Directory”."]
+        );
+
+        let changed = manifest(json!({
+            "addonCatalogs": [{
+                "type": "addon", "id": "two", "name": "Directory",
+                "extra": [{ "name": "search" }]
+            }]
+        }));
+        let changes = manifest_changes(&old, &changed);
+        assert!(changes.capabilities_changed);
+        assert_eq!(changes.changes, ["Changes catalog ids or filters."]);
     }
 
     #[test]

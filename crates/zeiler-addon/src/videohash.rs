@@ -67,6 +67,7 @@ impl VideoHasher {
         Ok(Self {
             http: reqwest::Client::builder()
                 .connect_timeout(HASH_TIMEOUT)
+                .redirect(reqwest::redirect::Policy::none())
                 .build()?,
         })
     }
@@ -214,7 +215,7 @@ mod tests {
     }
 
     /// A loopback server that serves `file` with range support (or without), and logs
-    /// the Range and Authorization headers it got.
+    /// the request lines and headers it got.
     async fn serve(
         file: Vec<u8>,
         ranges: bool,
@@ -239,11 +240,12 @@ mod tests {
                         }
                     }
                     let head = String::from_utf8_lossy(&head).to_lowercase();
-                    for line in head.lines() {
-                        if line.starts_with("range:") || line.starts_with("authorization:") {
-                            seen.lock().unwrap().push(line.trim().to_string());
-                        }
-                    }
+                    seen.lock().unwrap().extend(
+                        head.lines()
+                            .map(str::trim)
+                            .filter(|line| !line.is_empty())
+                            .map(str::to_string),
+                    );
                     let range = head
                         .lines()
                         .find_map(|l| l.strip_prefix("range: bytes="))
@@ -269,8 +271,47 @@ mod tests {
         (base, log)
     }
 
+    async fn redirect(location: String) -> String {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        tokio::spawn(async move {
+            loop {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let location = location.clone();
+                tokio::spawn(async move {
+                    let mut head = [0u8; 1024];
+                    let _ = socket.read(&mut head).await;
+                    let response = format!(
+                        "HTTP/1.1 302 Found\r\nlocation: {location}\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"
+                    );
+                    let _ = socket.write_all(response.as_bytes()).await;
+                });
+            }
+        });
+        base
+    }
+
     fn client() -> reqwest::Client {
         reqwest::Client::builder().no_proxy().build().unwrap()
+    }
+
+    #[tokio::test]
+    async fn redirects_do_not_forward_url_or_header_secrets() {
+        let (destination, seen) = serve(vec![0u8; 200_000], true).await;
+        let source = redirect(format!("{destination}/video.mkv")).await;
+        let target = HashTarget {
+            url: format!("{source}/video.mkv?access_token=url-secret"),
+            headers: vec![("X-Credential".into(), "header-secret".into())],
+            referrer: Some("https://private.example/?token=referrer-secret".into()),
+            ..HashTarget::default()
+        };
+        let result = VideoHasher::new().unwrap().hash(&target).await;
+        assert!(matches!(result, Err(VideoHashError::Status(302))));
+        assert!(
+            seen.lock().unwrap().is_empty(),
+            "the redirect destination received a request: {seen:?}"
+        );
     }
 
     #[tokio::test]

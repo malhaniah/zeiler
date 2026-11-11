@@ -1,8 +1,8 @@
 //! Opt-in Stremio account sync, per profile.
 //!
 //! Signing in (a link code in the browser, or email and password) stores the session
-//! key in the OS keychain (or memory, `secrets.rs`) and the non-secret account details
-//! in the profile's `account.json`. While signed in:
+//! key in the OS keychain (or memory, `secrets.rs`), and the account details plus
+//! account-scoped pending addon operations in the profile's `account.json`. While signed in:
 //!
 //! - **Library** sync (on by default once signed in) follows stremio-core: per item, the
 //!   newer `_mtime` wins. It runs at sign-in, at startup, every 15 minutes, a minute
@@ -57,6 +57,15 @@ pub struct AccountFile {
     /// Unix milliseconds.
     pub last_library_sync: Option<i64>,
     pub last_addons_sync: Option<i64>,
+    /// Unsent changes, kept separately for every Stremio user of this profile.
+    pub pending_addons: Vec<PendingAddonOps>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PendingAddonOps {
+    pub user_id: String,
+    pub ops: Vec<AddonOp>,
 }
 
 /// What the UI shows.
@@ -114,11 +123,9 @@ pub struct AccountState {
     pub kick: Notify,
     /// Zeiler's built-ins, never pushed into an account.
     pub builtins: Builtins,
-    /// Local addon changes not yet in the account, oldest first. Appended by the addon
-    /// commands under `profile_op` (so in the order they happened), drained by a push
-    /// under `sync_lock`. A pull doesn't replace the local list while any are left, so
-    /// a change that couldn't be sent is never undone by the next pull.
-    pub pending: Mutex<Vec<AddonOp>>,
+    /// A queue could not be persisted. Destructive pulls stay blocked for this run:
+    /// the local change is still on disk, but there is no durable operation to replay.
+    addon_queue_failed: AtomicBool,
 }
 
 pub fn now_ms() -> i64 {
@@ -154,7 +161,7 @@ impl AccountState {
             sync_lock: tokio::sync::Mutex::new(()),
             kick: Notify::new(),
             builtins: crate::builtin::builtins_for_sync(),
-            pending: Mutex::new(Vec::new()),
+            addon_queue_failed: AtomicBool::new(false),
         })
     }
 
@@ -167,26 +174,46 @@ impl AccountState {
         Ok(())
     }
 
-    /// Queue local addon changes for the account (called under `profile_op`).
-    pub fn queue(&self, ops: Vec<AddonOp>) {
-        self.pending
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .extend(ops);
+    /// Queue local addon changes for the signed-in Stremio user (called under
+    /// `profile_op`). Other users' queues stay untouched for their next sign-in.
+    pub async fn queue(&self, ops: Vec<AddonOp>) -> Result<(), IpcError> {
+        self.file
+            .try_update(|f| {
+                if ops.is_empty() || !f.sync_addons {
+                    return Ok(None);
+                }
+                let Some(user_id) = f.user.as_ref().map(|u| u.id.clone()) else {
+                    return Ok(None);
+                };
+                if let Some(pending) = f
+                    .pending_addons
+                    .iter_mut()
+                    .find(|pending| pending.user_id == user_id)
+                {
+                    pending.ops.extend(ops);
+                } else {
+                    f.pending_addons.push(PendingAddonOps { user_id, ops });
+                }
+                Ok(Some(()))
+            })
+            .await?;
+        Ok(())
     }
 
-    pub fn clear_pending(&self) {
-        self.pending
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .clear();
+    pub fn addon_queue_failed(&self) {
+        self.addon_queue_failed.store(true, Ordering::SeqCst);
     }
 
-    fn pending_ops(&self) -> Vec<AddonOp> {
-        self.pending
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .clone()
+    async fn pending_ops(&self) -> Option<(String, Vec<AddonOp>)> {
+        let file = self.file.get().await;
+        let user_id = file.user.as_ref()?.id.clone();
+        let ops = file
+            .pending_addons
+            .iter()
+            .find(|pending| pending.user_id == user_id)
+            .map(|pending| pending.ops.clone())
+            .unwrap_or_default();
+        Some((user_id, ops))
     }
 
     pub fn set_error(&self, error: Option<String>) {
@@ -275,6 +302,33 @@ pub async fn signed_in(
     Ok(())
 }
 
+/// Commit a login only to the profile that started it. The network request happens
+/// before this call; a profile switch meanwhile makes the login ask to be retried.
+pub async fn signed_in_active(
+    state: &AppState,
+    account: &AccountState,
+    intended_profile: String,
+    key: AuthKey,
+    user: UserSummary,
+    remember: bool,
+) -> Result<(), IpcError> {
+    let _one = account.sync_lock.lock().await;
+    let current_profile = state
+        .profiles
+        .read()
+        .await
+        .active_id
+        .clone()
+        .unwrap_or_default();
+    if current_profile != intended_profile {
+        return Err(IpcError::Conflict(
+            "The active profile changed during sign-in. Sign in again in this profile.".into(),
+        ));
+    }
+    let _profile = state.profile_op.lock().await;
+    signed_in(account, &intended_profile, key, user, remember).await
+}
+
 // ---- library ---------------------------------------------------------------------------
 
 /// Pull what's newer in the account, push what's newer here.
@@ -349,6 +403,12 @@ pub async fn pull_addons(
     state: &AppState,
     key: &AuthKey,
 ) -> Result<usize, SyncError> {
+    if account.addon_queue_failed.load(Ordering::SeqCst) {
+        return Err(SyncError::Unexpected(
+            "addon pulls are paused because a local change could not be added to the sync queue"
+                .into(),
+        ));
+    }
     push_pending(account, key).await?;
     let remote = match account.api.addon_collection_get(key).await {
         Ok(remote) => remote,
@@ -367,7 +427,11 @@ pub async fn pull_addons(
         let _profile = state.profile_op.lock().await;
         // a change made while the collection was being fetched wins: it is sent with
         // the next push, and the next pull sees it
-        if !account.pending_ops().is_empty() {
+        if account
+            .pending_ops()
+            .await
+            .is_some_and(|(_, ops)| !ops.is_empty())
+        {
             return Ok(state.addons.read().await.len());
         }
         *state.addons.write().await = addons;
@@ -398,17 +462,31 @@ pub fn usable(raw: &RawDescriptor) -> bool {
     }
 }
 
-/// Send the queued local changes, in order, as one rebase of the account's current
-/// collection. They leave the queue only once sent.
+/// Send only the signed-in Stremio user's queued changes, oldest first. They leave
+/// their durable queue only once sent; queues belonging to other users stay untouched.
 pub async fn push_pending(account: &AccountState, key: &AuthKey) -> Result<(), SyncError> {
-    let ops = account.pending_ops();
+    let Some((user_id, ops)) = account.pending_ops().await else {
+        return Ok(());
+    };
     if ops.is_empty() {
         return Ok(());
     }
     push_addon_ops(account, key, &ops).await?;
-    let mut pending = account.pending.lock().unwrap_or_else(|e| e.into_inner());
-    let sent = ops.len().min(pending.len());
-    pending.drain(..sent);
+    account
+        .file
+        .update(|f| {
+            if let Some(pending) = f
+                .pending_addons
+                .iter_mut()
+                .find(|pending| pending.user_id == user_id)
+            {
+                let sent = ops.len().min(pending.ops.len());
+                pending.ops.drain(..sent);
+            }
+            f.pending_addons.retain(|pending| !pending.ops.is_empty());
+        })
+        .await
+        .map_err(|e| SyncError::Unexpected(e.to_string()))?;
     Ok(())
 }
 
@@ -675,7 +753,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn queued_changes_go_first_and_a_pull_never_undoes_them() {
+    async fn queued_changes_survive_restart_and_switches_and_a_pull_never_undoes_them() {
         let dir = crate::persist::tests::temp_dir("account-pending");
         let state = AppState::load(dir.join("data"), dir.join("cache"))
             .await
@@ -691,9 +769,24 @@ mod tests {
             json!({ "addons": [], "lastModified": null }),
         )])
         .await;
-        let account = account_in(&dir, api).await;
+        let account = account_in(&dir, api.clone()).await;
         let key = AuthKey::new("k").unwrap();
-        account.queue(vec![AddonOp::Add(to_raw(&mine).unwrap())]);
+        account
+            .file
+            .update(|f| {
+                f.user = Some(serde_json::from_value(json!({ "_id": "user-a" })).unwrap());
+                f.sync_addons = true;
+            })
+            .await
+            .unwrap();
+        account
+            .queue(vec![AddonOp::Add(to_raw(&mine).unwrap())])
+            .await
+            .unwrap();
+
+        account.switch_to(&dir.join("other")).await.unwrap();
+        account.switch_to(&dir).await.unwrap();
+        let account = account_in(&dir, api).await;
 
         assert!(pull_addons(&account, &state, &key).await.is_err());
         assert_eq!(
@@ -701,7 +794,86 @@ mod tests {
             1,
             "the local install survives"
         );
-        assert_eq!(account.pending.lock().unwrap().len(), 1, "still queued");
+        let file = account.file.get().await;
+        assert_eq!(file.pending_addons.len(), 1, "still queued after restart");
+        assert_eq!(file.pending_addons[0].user_id, "user-a");
+        assert_eq!(file.pending_addons[0].ops.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn pending_addons_never_cross_stremio_accounts() {
+        let dir = crate::persist::tests::temp_dir("account-pending-users");
+        let (api, seen) = mock(vec![
+            (
+                "addonCollectionGet",
+                json!({ "addons": [], "lastModified": null }),
+            ),
+            ("addonCollectionSet", json!({ "success": true })),
+        ])
+        .await;
+        let account = account_in(&dir, api).await;
+        let user = |id: &str| serde_json::from_value(json!({ "_id": id })).unwrap();
+        let descriptor = |id: &str, url: &str| {
+            let descriptor: Descriptor = serde_json::from_value(json!({
+                "manifest": { "id": id, "name": id }, "transportUrl": url
+            }))
+            .unwrap();
+            to_raw(&descriptor).unwrap()
+        };
+        let key_a = AuthKey::new("key-a").unwrap();
+        let key_b = AuthKey::new("key-b").unwrap();
+
+        signed_in(&account, "profile", key_a.clone(), user("user-a"), false)
+            .await
+            .unwrap();
+        account.file.update(|f| f.sync_addons = true).await.unwrap();
+        account
+            .queue(vec![AddonOp::Add(descriptor(
+                "org.a",
+                "https://a.example/manifest.json",
+            ))])
+            .await
+            .unwrap();
+
+        signed_in(&account, "profile", key_b.clone(), user("user-b"), false)
+            .await
+            .unwrap();
+        account.file.update(|f| f.sync_addons = true).await.unwrap();
+        account
+            .queue(vec![AddonOp::Add(descriptor(
+                "org.b",
+                "https://b.example/manifest.json",
+            ))])
+            .await
+            .unwrap();
+        push_pending(&account, &key_b).await.unwrap();
+
+        let after_b = seen.lock().unwrap().clone();
+        let set_b = after_b
+            .iter()
+            .find(|(path, _)| path == "/api/addonCollectionSet")
+            .unwrap();
+        assert_eq!(set_b.1["authKey"], "key-b");
+        assert_eq!(set_b.1["addons"].as_array().unwrap().len(), 1);
+        assert_eq!(set_b.1["addons"][0]["manifest"]["id"], "org.b");
+        assert_eq!(account.file.get().await.pending_addons[0].user_id, "user-a");
+
+        signed_in(&account, "profile", key_a.clone(), user("user-a"), false)
+            .await
+            .unwrap();
+        account.file.update(|f| f.sync_addons = true).await.unwrap();
+        push_pending(&account, &key_a).await.unwrap();
+
+        let after_a = seen.lock().unwrap().clone();
+        let set_a = after_a
+            .iter()
+            .filter(|(path, _)| path == "/api/addonCollectionSet")
+            .nth(1)
+            .unwrap();
+        assert_eq!(set_a.1["authKey"], "key-a");
+        assert_eq!(set_a.1["addons"].as_array().unwrap().len(), 1);
+        assert_eq!(set_a.1["addons"][0]["manifest"]["id"], "org.a");
+        assert!(account.file.get().await.pending_addons.is_empty());
     }
 
     #[test]
@@ -782,6 +954,36 @@ mod tests {
                 .await
                 .is_err()
         );
+    }
+
+    #[tokio::test]
+    async fn sign_in_commit_refuses_a_profile_changed_during_login() {
+        let dir = crate::persist::tests::temp_dir("account-sign-in-profile");
+        let state = AppState::load(dir.join("data"), dir.join("cache"))
+            .await
+            .unwrap();
+        let intended = state.profiles.read().await.active_id.clone().unwrap();
+        let account = account_in(&dir, StremioApi::new().unwrap()).await;
+        let other = crate::profiles::new_profile("Other".into(), "red".into());
+        let mut profiles = state.profiles.read().await.clone();
+        profiles.active_id = Some(other.id.clone());
+        profiles.profiles.push(other.clone());
+        state.save_profiles(profiles).await.unwrap();
+
+        let result = signed_in_active(
+            &state,
+            &account,
+            intended.clone(),
+            AuthKey::new("key-a").unwrap(),
+            serde_json::from_value(json!({ "_id": "user-a" })).unwrap(),
+            false,
+        )
+        .await;
+
+        assert!(matches!(result, Err(IpcError::Conflict(_))));
+        assert!(account.key(&intended).is_none());
+        assert!(account.key(&other.id).is_none());
+        assert_eq!(account.file.get().await.user, None);
     }
 
     #[test]

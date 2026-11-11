@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use serde_with::{DefaultOnError, VecSkipError, serde_as};
+use serde_with::{DefaultOnError, serde_as};
 
 /// A Stremio session key. Never serialized, logged or shown: `Debug` is redacted, and
 /// it leaves this crate only towards the keychain.
@@ -73,13 +73,11 @@ impl RawDescriptor {
     }
 }
 
-/// `addonCollectionGet`'s answer.
-#[serde_as]
+/// `addonCollectionGet`'s answer. An unreadable entry fails the whole response:
+/// skipping it would silently delete it on the next whole-collection write.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CollectionResponse {
-    #[serde_as(deserialize_as = "VecSkipError<_>")]
-    #[serde(default)]
     pub addons: Vec<RawDescriptor>,
     #[serde(default)]
     pub last_modified: Option<Value>,

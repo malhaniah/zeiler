@@ -196,11 +196,23 @@ pub(crate) fn install_into(
     Ok(())
 }
 
+fn validate_reviewed_manifest(
+    expected: &zeiler_addon::Manifest,
+    fresh: &zeiler_addon::Manifest,
+) -> Result<(), IpcError> {
+    if expected.id != fresh.id || manifest_changes(expected, fresh).capabilities_changed {
+        return Err(IpcError::Conflict(
+            "The addon changed after you reviewed it. Preview it again before installing.".into(),
+        ));
+    }
+    Ok(())
+}
+
 /// Install (or update in place) an addon by transport URL. `replace` names an installed
 /// addon's transport URL that the new one takes the place of (a reconfigured copy),
 /// keeping its position in the priority order. The UI calls this only from the install
-/// confirmation; the manifest is fetched again here, so what is stored is what the
-/// addon serves now, never what the webview sent.
+/// confirmation and passes the manifest it reviewed; the manifest is fetched again here,
+/// so what is stored is what the addon serves now, never what the webview sent.
 #[tauri::command]
 pub async fn addon_add(
     app: AppHandle,
@@ -208,9 +220,14 @@ pub async fn addon_add(
     updates: State<'_, UpdateCache>,
     url: String,
     replace: Option<String>,
+    expected_manifest: Option<zeiler_addon::Manifest>,
 ) -> Result<Descriptor, IpcError> {
+    let origin_profile = state.profiles.read().await.active_id.clone();
     let transport_url = normalize_transport_input(&url)?;
     let descriptor = state.client.descriptor(&transport_url).await?;
+    if let Some(expected) = expected_manifest.as_ref() {
+        validate_reviewed_manifest(expected, &descriptor.manifest)?;
+    }
 
     if descriptor.manifest.behavior_hints.configuration_required {
         return Err(IpcError::InvalidInput(
@@ -218,8 +235,13 @@ pub async fn addon_add(
         ));
     }
 
-    // a profile switch can't land between the change and its write
+    // a profile switch can't redirect the delayed fetch into another profile's addons
     let _profile = state.profile_op.lock().await;
+    if state.profiles.read().await.active_id != origin_profile {
+        return Err(IpcError::Conflict(
+            "The active profile changed while this addon was loading. Install it again in this profile.".into(),
+        ));
+    }
     install_into(
         &mut *state.addons.write().await,
         descriptor.clone(),
@@ -508,6 +530,8 @@ pub async fn addon_refresh(
 ) -> Result<Descriptor, IpcError> {
     let url = Url::parse(&transport_url)
         .map_err(|_| IpcError::InvalidInput("That is not an addon address.".into()))?;
+    // Keep the same profile from the initial read through the delayed fetch and commit.
+    let _profile = state.profile_op.lock().await;
     let current = state
         .addons
         .read()
@@ -522,9 +546,7 @@ pub async fn addon_refresh(
             "This update changes what the addon can do. Review it before installing.".into(),
         ));
     }
-    // in place, and NotFound if it was removed meanwhile (never added back); a switch
-    // to another profile meanwhile makes it NotFound too
-    let _profile = state.profile_op.lock().await;
+    // in place, and NotFound if it was removed meanwhile (never added back)
     install_into(
         &mut *state.addons.write().await,
         fresh.clone(),
@@ -600,6 +622,31 @@ mod tests {
         assert_eq!(host.masked_url, "https://a.example/…/manifest.json");
         assert_eq!(kind("https://a.example:8443/manifest.json", "org.x"), None);
         assert_eq!(kind("https://d.example/manifest.json", "org.x"), None);
+    }
+
+    #[test]
+    fn install_accepts_only_cosmetic_changes_since_the_preview() {
+        let reviewed = addon("https://a.example/manifest.json", "a").manifest;
+        let mut cosmetic = reviewed.clone();
+        cosmetic.version = Some("1.1.0".into());
+        cosmetic.description = Some("New wording".into());
+        validate_reviewed_manifest(&reviewed, &cosmetic).unwrap();
+
+        let mut new_capabilities = cosmetic.clone();
+        new_capabilities
+            .resources
+            .push(zeiler_addon::ManifestResource::Short("stream".into()));
+        assert!(matches!(
+            validate_reviewed_manifest(&reviewed, &new_capabilities),
+            Err(IpcError::Conflict(_))
+        ));
+
+        let mut different_id = cosmetic;
+        different_id.id = "other".into();
+        assert!(matches!(
+            validate_reviewed_manifest(&reviewed, &different_id),
+            Err(IpcError::Conflict(_))
+        ));
     }
 
     #[test]

@@ -43,9 +43,17 @@ export function errorKind(error: unknown): string | undefined {
 export const addonPreview = (url: string, listingKey?: string | null) =>
   invoke<InstallPreview>("addon_preview", { url, listingKey: listingKey ?? null });
 /** Only from the install confirmation. `replace`: an installed addon's transport URL that
- * this one takes the place of (keeping its position). */
-export const addonAdd = (url: string, replace?: string | null) =>
-  invoke<Descriptor>("addon_add", { url, replace: replace ?? null });
+ * this one takes the place of (keeping its position). `expectedManifest` is the reviewed preview. */
+export const addonAdd = (
+  url: string,
+  replace?: string | null,
+  expectedManifest?: Descriptor["manifest"] | null,
+) =>
+  invoke<Descriptor>("addon_add", {
+    url,
+    replace: replace ?? null,
+    expectedManifest: expectedManifest ?? null,
+  });
 export const addonRemove = (transportUrl: string) =>
   invoke<void>("addon_remove", { transportUrl });
 export const addonList = () => invoke<Descriptor[]>("addon_list");

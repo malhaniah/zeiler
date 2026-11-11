@@ -15,6 +15,15 @@ pub use fetch::{Access, EPG_MAX_BYTES, IptvClient, PLAYLIST_MAX_BYTES, unencrypt
 pub use xmltv::Program;
 pub use xtream::XtreamAccount;
 
+/// Largest channel list accepted from either kind of source.
+pub const MAX_CHANNELS: usize = 50_000;
+
+pub(crate) fn too_many_channels() -> IptvError {
+    IptvError::Source(format!(
+        "The source has more than {MAX_CHANNELS} channels; Zeiler keeps at most {MAX_CHANNELS} channels per source."
+    ))
+}
+
 /// One channel of a source.
 #[derive(Clone, PartialEq)]
 pub struct Channel {

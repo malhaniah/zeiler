@@ -278,7 +278,8 @@ impl IptvState {
                     xtream::channels(&account, &categories, &streams)
                 })
                 .await
-                .map_err(|_| IpcError::Addon("Reading the channel list failed.".into()))?;
+                .map_err(|_| IpcError::Addon("Reading the channel list failed.".into()))?
+                .map_err(iptv_error)?;
                 Ok((channels, None))
             }
         }

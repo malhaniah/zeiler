@@ -11,7 +11,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use url::Url;
 
-use crate::{Channel, IptvError, stable_id};
+use crate::{Channel, IptvError, MAX_CHANNELS, stable_id, too_many_channels};
 
 /// A server and its account.
 #[derive(Clone, PartialEq, Eq, serde::Serialize, Deserialize)]
@@ -116,7 +116,11 @@ impl XtreamAccount {
 
 /// Channels from `get_live_categories` and `get_live_streams` answers. Lenient: ids may
 /// be numbers or strings, and rows without an id are skipped.
-pub fn channels(account: &XtreamAccount, categories: &Value, streams: &Value) -> Vec<Channel> {
+pub fn channels(
+    account: &XtreamAccount,
+    categories: &Value,
+    streams: &Value,
+) -> Result<Vec<Channel>, IptvError> {
     let text = |v: Option<&Value>| -> Option<String> {
         match v? {
             Value::String(s) if !s.trim().is_empty() => Some(s.trim().to_string()),
@@ -130,32 +134,34 @@ pub fn channels(account: &XtreamAccount, categories: &Value, streams: &Value) ->
         .flatten()
         .filter_map(|c| Some((text(c.get("category_id"))?, text(c.get("category_name"))?)))
         .collect();
-    streams
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|s| {
-            let stream_id = text(s.get("stream_id"))?;
-            if !stream_id
-                .bytes()
-                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
-            {
-                return None;
-            }
-            let name = text(s.get("name")).unwrap_or_else(|| format!("Stream {stream_id}"));
-            Some(Channel {
-                id: stable_id(&["xtream", &stream_id]),
-                tvg_id: text(s.get("epg_channel_id")),
-                name,
-                logo: text(s.get("stream_icon"))
-                    .filter(|u| u.starts_with("http://") || u.starts_with("https://")),
-                group: text(s.get("category_id")).and_then(|id| names.get(&id).cloned()),
-                url: account.stream_url(&stream_id),
-                user_agent: None,
-                referrer: None,
-            })
-        })
-        .collect()
+    let mut channels = Vec::new();
+    for stream in streams.as_array().into_iter().flatten() {
+        let Some(stream_id) = text(stream.get("stream_id")) else {
+            continue;
+        };
+        if !stream_id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+        {
+            continue;
+        }
+        if channels.len() >= MAX_CHANNELS {
+            return Err(too_many_channels());
+        }
+        let name = text(stream.get("name")).unwrap_or_else(|| format!("Stream {stream_id}"));
+        channels.push(Channel {
+            id: stable_id(&["xtream", &stream_id]),
+            tvg_id: text(stream.get("epg_channel_id")),
+            name,
+            logo: text(stream.get("stream_icon"))
+                .filter(|u| u.starts_with("http://") || u.starts_with("https://")),
+            group: text(stream.get("category_id")).and_then(|id| names.get(&id).cloned()),
+            url: account.stream_url(&stream_id),
+            user_agent: None,
+            referrer: None,
+        });
+    }
+    Ok(channels)
 }
 
 #[cfg(test)]
@@ -227,7 +233,7 @@ mod tests {
             {"name": "no id"},
             {"stream_id": "../x", "name": "bad id"}
         ]);
-        let list = channels(&a, &categories, &streams);
+        let list = channels(&a, &categories, &streams).unwrap();
         assert_eq!(list.len(), 2);
         assert_eq!(list[0].group.as_deref(), Some("News"));
         assert_eq!(list[0].tvg_id.as_deref(), Some("news.uk"));
@@ -238,6 +244,26 @@ mod tests {
         assert_eq!(list[1].group.as_deref(), Some("Sports"));
         assert_eq!(list[1].logo, None);
         assert!(!list[0].id.contains(&pass));
-        assert!(channels(&a, &json!({"user_info": {}}), &json!(null)).is_empty());
+        assert!(
+            channels(&a, &json!({"user_info": {}}), &json!(null))
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn the_channel_limit_is_enforced_while_parsing() {
+        let pass = password();
+        let account = XtreamAccount::new("https://tv.example", "me", &pass).unwrap();
+        let streams = Value::Array(
+            (0..=MAX_CHANNELS)
+                .map(|stream_id| json!({"stream_id": stream_id}))
+                .collect(),
+        );
+
+        let error = channels(&account, &json!([]), &streams).unwrap_err();
+        assert!(
+            matches!(error, IptvError::Source(message) if message.contains(&MAX_CHANNELS.to_string()))
+        );
     }
 }

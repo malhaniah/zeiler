@@ -119,7 +119,7 @@ function InstallDialog({ request }: { request: InstallRequest }) {
     setError(null);
     try {
       const target = p.existing?.kind === "sameUrl" ? null : replace;
-      await addonAdd(p.descriptor.transportUrl, target);
+      await addonAdd(p.descriptor.transportUrl, target, p.descriptor.manifest);
       await reload();
       closeInstall();
     } catch (e) {

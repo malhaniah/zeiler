@@ -13,12 +13,8 @@ ships as a new release, which installed copies pick up on their own.
 
 | Version | Supported |
 | --- | --- |
-| v0.2.1 | Yes |
+| v0.3.8 | Yes |
 | Older releases, including Sailor v0.1.x | No. Update to the latest release. |
-
-The next release will carry milestones M7 to M13 (skip and next episode, catalogs, Live TV
-and IPTV, the addon marketplace, local profiles, Stremio account sync and built-in playback
-on macOS). Once it is published it becomes the only supported version.
 
 ## Reporting a vulnerability
 

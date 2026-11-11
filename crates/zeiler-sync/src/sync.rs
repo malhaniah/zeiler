@@ -92,7 +92,8 @@ pub fn same_url(a: &str, b: &str) -> bool {
 }
 
 /// A local change to the user's addons, replayed onto the account's current collection.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum AddonOp {
     /// Installed or updated (same transport URL: replaced in place).
     Add(RawDescriptor),
@@ -200,7 +201,9 @@ pub fn first_sync(
     if choice == FirstSync::Merge {
         for addon in local {
             if !builtins.matches(addon)
-                && !next.iter().any(|d| d.transport_url == addon.transport_url)
+                && !next
+                    .iter()
+                    .any(|d| same_url(&d.transport_url, &addon.transport_url))
             {
                 next.push(addon.clone());
             }
@@ -443,7 +446,7 @@ mod tests {
         );
         let local = vec![
             raw("https://b/manifest.json", "b", false),
-            raw("https://a/manifest.json", "a", false),
+            raw("HTTPS://A:443/manifest.json", "a", false),
             raw(
                 "https://elsewhere/manifest.json",
                 "com.linvo.cinemeta",

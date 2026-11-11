@@ -224,21 +224,10 @@ export function useNextEpisode({
     }
   }, [wanted, video, stream, go]);
 
-  // one previous-episode lookup at a time (a second p waits for the first)
-  const goingBack = useRef(false);
   const playPrevious = useMemo(() => {
     if (!previous || foreign) return null;
-    return () => {
-      if (goingBack.current) return;
-      goingBack.current = true;
-      void findStream(previous)
-        .catch(() => null)
-        .then((candidate) => go(previous, candidate))
-        .finally(() => {
-          goingBack.current = false;
-        });
-    };
-  }, [previous, foreign, findStream, go]);
+    return () => playEpisode(previous);
+  }, [previous, foreign, playEpisode]);
 
   // the Up Next card and its countdown
   const ended = phase.kind === "ended";

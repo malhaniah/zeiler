@@ -64,6 +64,7 @@ impl AddonClient {
             .connect_timeout(Duration::from_secs(10))
             .timeout(Duration::from_secs(30))
             .redirect(reqwest::redirect::Policy::limited(10))
+            .referer(false)
             .gzip(true)
     }
 
@@ -180,6 +181,19 @@ impl AddonClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    async fn request_head(socket: &mut tokio::net::TcpStream) -> String {
+        let mut head = Vec::new();
+        let mut chunk = [0u8; 1024];
+        while !head.windows(4).any(|w| w == b"\r\n\r\n") {
+            match socket.read(&mut chunk).await {
+                Ok(0) | Err(_) => break,
+                Ok(n) => head.extend_from_slice(&chunk[..n]),
+            }
+        }
+        String::from_utf8_lossy(&head).into_owned()
+    }
 
     #[test]
     fn relative_manifest_images_resolve_against_the_transport_url() {
@@ -205,5 +219,51 @@ mod tests {
         }))
         .unwrap();
         assert!(parsed.logo.is_none());
+    }
+
+    #[tokio::test]
+    async fn redirects_do_not_send_the_configured_url_as_referer() {
+        let target = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let target_addr = target.local_addr().unwrap();
+        let target_request = tokio::spawn(async move {
+            let (mut socket, _) = target.accept().await.unwrap();
+            let head = request_head(&mut socket).await;
+            socket
+                .write_all(b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\nconnection: close\r\n\r\n{}")
+                .await
+                .unwrap();
+            head
+        });
+
+        let source = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let source_addr = source.local_addr().unwrap();
+        let redirect = tokio::spawn(async move {
+            let (mut socket, _) = source.accept().await.unwrap();
+            request_head(&mut socket).await;
+            let response = format!(
+                "HTTP/1.1 307 Temporary Redirect\r\nlocation: http://{target_addr}/landed\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"
+            );
+            socket.write_all(response.as_bytes()).await.unwrap();
+        });
+
+        let url = Url::parse(&format!(
+            "http://{source_addr}/configured-secret/manifest.json?key=query-secret"
+        ))
+        .unwrap();
+        let body = AddonClient::for_loopback_tests()
+            .get_bytes(url, 1024)
+            .await
+            .unwrap();
+        assert_eq!(body, b"{}");
+        redirect.await.unwrap();
+        let head = target_request.await.unwrap();
+        assert!(
+            !head
+                .lines()
+                .any(|line| line.to_ascii_lowercase().starts_with("referer:")),
+            "redirect target received Referer: {head}"
+        );
+        assert!(!head.contains("configured-secret"));
+        assert!(!head.contains("query-secret"));
     }
 }

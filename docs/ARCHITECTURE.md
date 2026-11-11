@@ -17,7 +17,7 @@ addon URLs. This document records the load-bearing decisions and the shape of th
 | Content neutrality | No seeded stream addons; built-ins are metadata or subtitles only, switchable, never streams | Unlike Harbor (which also seeds Torrentio), Zeiler builds in only metadata and subtitle addons — Cinemeta and Anime Kitsu (metadata) and OpenSubtitles v3 (subtitles) — from manifest snapshots compiled into the app (`src-tauri/builtin/`), each switchable in Settings → Content. A test fails the build if a built-in declares a `stream` resource. Stream addons are installed only by the user, behind a confirmation dialog showing the live manifest (name, version, resources, p2p/adult hints): from a pasted URL, an opt-in `stremio://` link, or the opt-in addon directory. |
 | Addon directory | Opt-in browsing of third-party listings (stremio-addons.net, Stremio's `addon_catalog`) | Zeiler curates, ranks and seeds nothing: no featured rails, no recommendations, no bundled list; the only orderings are the directory's own stars, listing date, or name. Every listing is labelled "not reviewed by Zeiler"; adult listings are hidden unless `showAdult`; every install goes through the confirmation dialog, which fetches the live manifest and shows where it differs from the listing. Nothing is fetched before `marketplaceEnabled`. |
 | Stremio account | Opt-in, per profile; link-code sign-in first, password second; the key in the OS keychain | Off until a profile signs in. Hand-rolled client of the account API (`zeiler-sync`, stremio-core's request shapes, an honest `Zeiler/<version>` user agent); never the telemetry or premium endpoints (events, seekLog, getSkipGaps, …). See "Account sync". |
-| Updates | tauri-plugin-updater, install on next launch | Signed (minisign) packages from `releases/latest/download/latest.json`; releases are therefore regular, not pre-releases. Checked at launch (installed immediately, before the user starts anything) and every 6 h (downloaded to the cache, installed on the next launch). A downloaded update opens a dialog with Restart and update / Later; Later quiets that version until the next launch, and a manual check emits the same ready event. Signing key: `TAURI_SIGNING_PRIVATE_KEY` secret; release builds pass `--config src-tauri/tauri.release.conf.json` to emit updater artifacts. Dev builds never self-update. |
+| Updates | tauri-plugin-updater, install on next launch | Signed (minisign) packages from `releases/latest/download/latest.json`; releases are therefore regular, not pre-releases. Checked at launch (installed immediately, before the user starts anything) and every 6 h (downloaded to the cache, installed on the next launch). Cached packages are signature-verified before reuse, corrupt ones are downloaded again, and downloads reach their final filename only after a complete write. A downloaded update opens a dialog with Restart and update / Later; Later quiets that version until the next launch, and a manual check emits the same ready event. Signing key: `TAURI_SIGNING_PRIVATE_KEY` secret; release builds pass `--config src-tauri/tauri.release.conf.json` to emit updater artifacts. Dev builds never self-update. |
 
 ## Workspace layout
 
@@ -57,9 +57,10 @@ Domain crates never depend on `tauri`; they test with plain `cargo test`.
   **video id** and the meta **type** (`/stream/series/tt0108778%3A1%3A1.json`).
 - Parsing is deliberately lenient (real addons are messy): unknown fields ignored, nulls →
   defaults, `title`/`name` aliases, numbers-or-strings accepted, invalid list items skipped.
-- The client follows redirects (Cinemeta answers 307 for paginated catalogs), caps response
-  sizes, applies timeouts, and never runs in the webview — **all addon HTTP happens in Rust**,
-  so CORS/mixed-content never applies and the CSP stays strict.
+- The client follows redirects (Cinemeta answers 307 for paginated catalogs) without
+  sending the configured URL as a `Referer`, caps response sizes, applies timeouts, and
+  never runs in the webview — **all addon HTTP happens in Rust**, so CORS/mixed-content
+  never applies and the CSP stays strict.
 
 ## Stream resolution flow
 
@@ -357,8 +358,9 @@ run `sub-add` (see "Validation policy").
   the request is the one Rust remembered at `player_start`/`player_load`, so it never
   comes back through the webview; only while that session still runs and no other file
   came since, and a file that changed meanwhile gets none; 15 s for both requests, and
-  the error logged without the URL). A server that ignores ranges is given up on after
-  the first chunk. A file that has not loaded within 20 s is asked for without a hash.
+  the error logged without the URL). Redirects are not followed, so URL and custom-header
+  credentials cannot leak to another origin. A server that ignores ranges is given up on
+  after the first chunk. A file that has not loaded within 20 s is asked for without a hash.
 - **Second subtitle.** The Subtitles menu can show a second subtitle above the first
   (`secondary-sid`, any track already in the player); `c` cycles it.
 - **Menus** (`SubtitleMenu.tsx`, `AudioMenu.tsx`). Subtitles: Off/On, a language rail,
@@ -470,8 +472,10 @@ Commands (all async, `Result<T, IpcError>`; payloads camelCase). This list match
   { kind: sameUrl|sameId|sameHost, name, transportUrl, maskedUrl }, configureUrl?,
   listingChanges, listingRequiresReview }` (fetch + parse, not persisted — feeds the
   confirm dialog; `listingKey` compares the live manifest with a directory listing) ·
-  `addon_add { url, replace? }` → Descriptor (`replace` swaps an installed addon in place,
-  keeping its position) · `addon_remove { transportUrl }` · `addon_list()` →
+  `addon_add { url, replace?, expectedManifest? }` → Descriptor (`replace` swaps an installed
+  addon in place, keeping its position; `expectedManifest` binds the refetched manifest's
+  identity and capabilities to the reviewed preview, with `conflict` on a material change) ·
+  `addon_remove { transportUrl }` · `addon_list()` →
   Descriptor[] (built-ins first, then the user's addons; while `showAdult` is off,
   without adult genre options or adult-named catalogs) · `addon_reorder { order }` →
   Descriptor[] (an exact permutation of the user's transport URLs, else `conflict`) ·
@@ -569,8 +573,10 @@ Commands (all async, `Result<T, IpcError>`; payloads camelCase). This list match
 - Live TV (the user's IPTV, see Security posture): `iptv_sources()` →
   `[{id, name, kind, host, hasEpg, favorites, storage}]` · `iptv_source_add { source:
   {name, kind: m3u|xtream, url?, epgUrl?, xtream?, userAgent?, allowHttp?} }` (checked by loading
-  its channels once) · `iptv_source_remove { id }` · `iptv_channels { id, force? }` →
-  `{channels: [{id, name, logo, group, tvgId}], groups}` (6 h memory cache) ·
+  its channels once, committed only if the originating profile is still active) ·
+  `iptv_source_remove { id }` · `iptv_channels { id, force? }` →
+  `{channels: [{id, name, logo, group, tvgId}], groups}` (6 h memory cache, at most
+  50,000 channels per source, enforced while parsing) ·
   `iptv_epg { id, tvgIds, fromMs, toMs }` → programmes per guide id (the guide is read
   downloaded whole, up to 100 MB, then unpacked and parsed as a stream, keeping only the
   source's channels a day ahead, for 1 h; one download per source at a time, a failure
@@ -731,9 +737,11 @@ by `account/secrets.rs` in the OS keychain (`io.zeiler.desktop`, account
 `stremio-auth:<profileId>`) when the user asks to stay signed in, else in memory; never
 in a file or settings, never over IPC, never logged; a key read from the keychain is
 kept in memory for the run, so the keychain is asked once per profile. The profile's
-`account.json` holds only the user's id, email, avatar URL and premium date (never the
-Trakt token or anything else of the user object), the sync switches and the last sync
-times. The QR code of a link sign-in is shown only when Stremio sends it as a `data:`
+`account.json` holds the user's id, email, avatar URL and premium date (never the
+Trakt token or anything else of the user object), the sync switches, last sync times
+and account-scoped pending addon operations (whose transport URLs may carry the same
+configuration keys already kept in `addons.json`, but never the session key). The QR
+code of a link sign-in is shown only when Stremio sends it as a `data:`
 image or an https URL (the latter is fetched from Stremio's chosen host).
 
 - **Library** (on once signed in): stremio-core's plan — `datastoreMeta`, pull what is
@@ -756,9 +764,11 @@ image or an https URL (the latter is fetched from Stremio's chosen host).
   fields byte for byte and never adding a built-in. Stremio has no compare-and-swap, so
   an edit made in Stremio at the same moment can be lost. Queued changes go before every
   pull, and a pull leaves the local list alone while any are left, so a change that
-  couldn't be sent is never undone (the queue is in memory: quitting before it is sent
-  loses it from the account, not from the profile). A failed pull pauses pushes
-  (`addonsLocked`) until a pull succeeds. Transport URLs are matched once parsed.
+  couldn't be sent is never undone. Queues persist in the profile's `account.json`,
+  partitioned by Stremio user id, so restarts, profile switches and account changes
+  cannot drop them or replay them under another account. A queue-persistence failure
+  pauses destructive pulls. A failed pull pauses pushes (`addonsLocked`) until a pull
+  succeeds. Transport URLs are matched once parsed.
 - Error code 1 (session ended) signs the profile out. Signing out keeps the library
   (still marked as that account's) and the addons as they are; deleting a profile also
   forgets its session key. A profile switch waits for a running sync and never overlaps
