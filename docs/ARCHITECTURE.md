@@ -185,7 +185,7 @@ backend setting says.
   Manrope fonts live in `public/fonts` with their OFL licenses. Shared transitions cover
   view changes, hero art, cards, dialogs and the seek bar; automatic carousels stop and
   nonessential transitions collapse under reduced motion. Wide viewports use
-  top navigation; smaller ones use bottom navigation with a More sheet for every other
+  left navigation; smaller ones use bottom navigation with a More sheet for every other
   destination. Home and title details lead with full-width artwork, and rails, search,
   episodes and player controls adapt to touch layouts without dropping actions. The PWA
   manifest, icons and service worker cache the same-origin application shell for offline

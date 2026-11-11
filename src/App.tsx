@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { SearchOverlay } from "./chrome/SearchOverlay";
 import { MobileNav } from "./chrome/MobileNav";
+import { Sidebar } from "./chrome/Sidebar";
 import { Topbar } from "./chrome/Topbar";
 import { UpdatePrompt } from "./chrome/UpdatePrompt";
 import { LibraryProvider } from "./lib/library";
@@ -58,7 +59,7 @@ function Shell() {
   const { stack, top, setView } = useView();
   const { settings } = useSettings();
   usePickerRequests();
-  // The picker and settings cover the small-screen bottom navigation.
+  // The picker and settings cover both navigation presentations.
   const hideMobileNav = top.kind === "picker" || top.kind === "settings";
   const rootFrame = stack.find((f) => ROOT_VIEWS.includes(f.kind as RootView));
   const root = (rootFrame?.kind ?? "home") as RootView;
@@ -73,6 +74,7 @@ function Shell() {
 
   return (
     <div className="relative flex h-full">
+      {!hideMobileNav && <Sidebar />}
       {!hideMobileNav && <MobileNav />}
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] xl:pb-0">
         {/* top fade so content scrolling under the fixed topbar stays legible */}
