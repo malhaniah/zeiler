@@ -662,7 +662,7 @@ function EpisodesSection({
         </div>
       </div>
 
-      <div className="flex flex-col gap-1">
+      <div key={season} className="animate-section-in flex flex-col gap-1">
         {episodes.map((video) => (
           <EpisodeRow
             key={video.id}

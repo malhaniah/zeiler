@@ -129,7 +129,11 @@ function Slide({
             : "justify-end px-5 pb-16 sm:px-12 sm:pb-20 lg:px-20 lg:pb-24"
         }`}
       >
-        <div className="max-w-2xl">
+        <div
+          className={`max-w-2xl transition-[opacity,transform] delay-100 duration-700 ease-out ${
+            active ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
+          }`}
+        >
           <div className="mb-4 inline-flex items-center gap-1.5 rounded-md bg-canvas/85 px-2.5 py-1 text-[11px] font-semibold text-ink sm:mb-5 sm:text-[12px]">
             <TrendingUp size={13} className="text-accent" />
             #{rank} in {typeLabel} Today

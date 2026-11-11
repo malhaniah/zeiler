@@ -2,17 +2,19 @@
  * The control bar's popup menus: a chip button with a panel above it, and the rows and
  * small controls the panels are built from (ControlsBar, SubtitleMenu, AudioMenu).
  */
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export const chip =
-  "flex h-10 shrink-0 items-center gap-1.5 rounded-md bg-canvas/50 px-3 text-sm text-ink-muted hover:bg-elevated hover:text-ink";
+  "flex h-10 shrink-0 items-center gap-1.5 rounded-md bg-canvas/50 px-3 text-sm text-ink-muted transition-[background-color,color,transform] duration-150 hover:bg-elevated hover:text-ink active:scale-95";
 
 /** Marks an open menu panel: the mouse wheel then scrolls it rather than set the volume
  * (`usePlayerWheel`). */
 export const PLAYER_MENU_ATTR = "data-player-menu";
 
-/** A button with a panel above it; closes on a click elsewhere or Escape (which then
- * does not also leave the player), and on a pick unless the panel keeps itself open. */
+/** A button with a viewport-positioned panel above it; closes on a click elsewhere or
+ * Escape (which then does not also leave the player), and on a pick unless the panel
+ * keeps itself open. */
 export function PopupMenu({
   label,
   title,
@@ -28,11 +30,35 @@ export function PopupMenu({
   children: (close: () => void) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState({ bottom: 0, right: 12, maxHeight: 480 });
+  const id = useId();
   const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const close = () => {
+    setOpen(false);
+    buttonRef.current?.focus();
+  };
   useEffect(() => {
     if (!open) return;
+    const updatePosition = () => {
+      const rect = ref.current?.getBoundingClientRect();
+      if (!rect) return;
+      setPosition({
+        bottom: window.innerHeight - rect.top + 8,
+        right: Math.max(12, window.innerWidth - rect.right),
+        maxHeight: Math.max(120, Math.min(480, window.innerHeight * 0.7, rect.top - 16)),
+      });
+    };
+    updatePosition();
+    const frame = requestAnimationFrame(() => {
+      const panel = panelRef.current;
+      const first = panel?.querySelector<HTMLElement>("button:not(:disabled), select, input");
+      (first ?? panel)?.focus();
+    });
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (!ref.current?.contains(target) && !panelRef.current?.contains(target)) setOpen(false);
     };
     // capture phase: runs before the player's window shortcuts, which skip a
     // prevented event
@@ -40,37 +66,56 @@ export function PopupMenu({
       if (e.key !== "Escape") return;
       e.preventDefault();
       e.stopPropagation();
-      setOpen(false);
+      close();
+    };
+    const onScroll = (e: Event) => {
+      if (!panelRef.current?.contains(e.target as Node)) updatePosition();
     };
     window.addEventListener("mousedown", onDown);
     window.addEventListener("keydown", onKey, true);
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
+      cancelAnimationFrame(frame);
       window.removeEventListener("mousedown", onDown);
       window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, [open]);
   return (
     <div ref={ref} className="relative">
       <button
+        ref={buttonRef}
         className={chip}
         onClick={() => {
           if (!open) onOpen?.();
           setOpen((o) => !o);
         }}
         title={title}
+        aria-haspopup="dialog"
+        aria-controls={id}
         aria-expanded={open}
       >
         {label}
       </button>
-      {open && (
-        <div
-          data-player-menu="" // PLAYER_MENU_ATTR: the wheel scrolls it, not the volume
-          className={`absolute bottom-10 right-0 z-10 max-h-[min(30rem,70vh)] overflow-y-auto rounded-lg border border-edge bg-surface py-1 shadow-xl ${width}`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {children(() => setOpen(false))}
-        </div>
-      )}
+      {open &&
+        createPortal(
+          <div
+            ref={panelRef}
+            id={id}
+            role="dialog"
+            aria-label={title ?? "Player menu"}
+            tabIndex={-1}
+            data-player-menu="" // PLAYER_MENU_ATTR: the wheel scrolls it, not the volume
+            className={`animate-player-menu-in fixed z-[120] max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-xl border border-edge bg-surface py-1 shadow-2xl ${width}`}
+            style={position}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {children(close)}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

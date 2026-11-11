@@ -234,7 +234,7 @@ export function PlayPickerView({
   const listing = auto === "off";
 
   return (
-    <main className="absolute inset-0 z-50 overflow-y-auto bg-canvas">
+    <main className="animate-view-in absolute inset-0 z-50 overflow-y-auto bg-canvas">
       {/* backdrop */}
       <div className="pointer-events-none fixed inset-0 -z-10">
         {backdrop ? (
@@ -336,8 +336,12 @@ export function PlayPickerView({
 
         {/* rows, in sections by quality, best first */}
         {listing &&
-          sections.map((section) => (
-            <section key={section.quality} className="flex flex-col gap-2">
+          sections.map((section, index) => (
+            <section
+              key={section.quality}
+              className="animate-section-in flex flex-col gap-2"
+              style={{ animationDelay: `${Math.min(index, 5) * 70}ms` }}
+            >
               <h2 className="flex items-baseline gap-2 px-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-ink-subtle">
                 {section.label}
                 <span className="font-medium tracking-normal">{section.rows.length}</span>
