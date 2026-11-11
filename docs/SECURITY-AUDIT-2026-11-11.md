@@ -117,6 +117,17 @@ The following confirmed items were not remediated in 0.3.8:
 - **Low — locked-screen deep links.** A second-instance `stremio://` link received while the
   profile picker is locked can have no mounted listener. Queue it until unlock.
 
+## Dependency alerts
+
+GitHub Dependabot separately reports three advisories for `zip 4.6.1` (critical, high and
+medium) through `tauri-plugin-updater 2.14.0`, and one medium-severity advisory for
+`glib 0.18.5` through Tauri's Linux GTK stack. The patched releases (`zip 9.0.5` and
+`glib 0.20.0`) are outside the semver requirements of the pinned Tauri dependencies
+(`zip ^4` and `glib ^0.18`), so this release does not force an untested major-version
+override. Track fixed upstream Tauri/GTK releases and upgrade through the normal build
+and platform test matrix. The updater verifies package signatures before extraction;
+these alerts do not constitute a confirmed Zeiler signature bypass.
+
 ## Limitations
 
 This was a source-led audit with unit and integration-style regression tests, not an
