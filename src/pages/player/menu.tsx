@@ -19,6 +19,7 @@ export function PopupMenu({
   label,
   title,
   width = "w-56",
+  panelClassName,
   onOpen,
   children,
 }: {
@@ -26,6 +27,8 @@ export function PopupMenu({
   title?: string;
   /** a Tailwind width class for the panel */
   width?: string;
+  /** replaces the panel's usual scrolling (for a panel with its own scroll regions) */
+  panelClassName?: string;
   onOpen?: () => void;
   children: (close: () => void) => ReactNode;
 }) {
@@ -44,10 +47,14 @@ export function PopupMenu({
     const updatePosition = () => {
       const rect = ref.current?.getBoundingClientRect();
       if (!rect) return;
+      const panelWidth = panelRef.current?.offsetWidth ?? 0;
+      const maxHeight = Math.max(120, Math.min(480, window.innerHeight * 0.7, rect.top - 16));
+      const furthestRight = Math.max(12, window.innerWidth - panelWidth - 12);
+      const furthestBottom = Math.max(12, window.innerHeight - maxHeight - 12);
       setPosition({
-        bottom: window.innerHeight - rect.top + 8,
-        right: Math.max(12, window.innerWidth - rect.right),
-        maxHeight: Math.max(120, Math.min(480, window.innerHeight * 0.7, rect.top - 16)),
+        bottom: Math.min(furthestBottom, Math.max(12, window.innerHeight - rect.top + 8)),
+        right: Math.min(furthestRight, Math.max(12, window.innerWidth - rect.right)),
+        maxHeight,
       });
     };
     updatePosition();
@@ -108,7 +115,7 @@ export function PopupMenu({
             aria-label={title ?? "Player menu"}
             tabIndex={-1}
             data-player-menu="" // PLAYER_MENU_ATTR: the wheel scrolls it, not the volume
-            className={`animate-player-menu-in fixed z-[120] max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-xl border border-edge bg-surface py-1 shadow-2xl ${width}`}
+            className={`animate-player-menu-in fixed z-[120] max-w-[calc(100vw-1.5rem)] rounded-xl border border-edge bg-surface py-1 shadow-2xl ${panelClassName ?? "overflow-y-auto"} ${width}`}
             style={position}
             onClick={(e) => e.stopPropagation()}
           >

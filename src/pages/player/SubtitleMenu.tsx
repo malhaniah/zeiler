@@ -1,29 +1,44 @@
 /**
- * The subtitle menu: every subtitle the file, the stream, the subtitle addons and the
- * user's own files offer, by language (preferred first) and by source, plus Off/On,
- * "Load from file…", the encoding of an added subtitle, the delay, and a quick style
- * (size, position, background) that applies at once and is saved, and a second
- * subtitle shown above the first (`secondary-sid`, e.g. two languages at once). Every
- * action goes through the player API, so it works the same for the built-in player and
- * external mpv. Keys: s next subtitle, c next second subtitle, z/x delay −/+0.1 s.
+ * Subtitle tracks, timing and appearance in separate views, so a long catalogue never
+ * pushes the settings out of reach. Tracks can be searched and filtered by language and
+ * source. Timing has direct-entry and stepped delay controls plus a second subtitle for
+ * translation. Appearance changes apply at once and are saved for every video.
+ * Keys: s next subtitle, c next second subtitle, z/x delay −/+0.1 s.
  */
-import { AlertTriangle, Captions, FileUp } from "lucide-react";
-import { useMemo, useState } from "react";
+import { AlertTriangle, Captions, Check, FileUp, RotateCcw, Search, X } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { playerSetProperty } from "../../lib/player-ipc";
-import { backgroundOf, backgroundPatch } from "../../lib/subtitle-style";
+import {
+  backgroundOf,
+  backgroundPatch,
+  NO_STYLE,
+  previewStyle,
+  shadowOf,
+  shadowPatch,
+  SUBTITLE_FONTS,
+  type Background,
+  type Shadow,
+} from "../../lib/subtitle-style";
 import { ENCODINGS, languageName } from "../../lib/subtitles";
 import type { SubtitleStyle } from "../../lib/types";
-import { Choice, DelayRow, PanelHeading, PopupMenu } from "./menu";
+import { Choice, formatDelay, PanelHeading, PopupMenu } from "./menu";
 import type { MpvState } from "./mpv-state";
 import type { SubtitleEntry, Tracks } from "./useTracks";
 
-type Tab = "all" | "embedded" | "addons" | "files";
+type SourceTab = "all" | "embedded" | "addons" | "files";
+type Section = "tracks" | "timing" | "appearance";
 
-const TABS: { id: Tab; label: string; has: (e: SubtitleEntry) => boolean }[] = [
+const SOURCE_TABS: { id: SourceTab; label: string; has: (e: SubtitleEntry) => boolean }[] = [
   { id: "all", label: "All", has: () => true },
   { id: "embedded", label: "In the video", has: (e) => e.kind === "embedded" },
-  { id: "addons", label: "Addons", has: (e) => e.kind === "addon" || e.kind === "stream" },
+  { id: "addons", label: "Online", has: (e) => e.kind === "addon" || e.kind === "stream" },
   { id: "files", label: "Files", has: (e) => e.kind === "local" },
+];
+
+const SECTIONS: { id: Section; label: string }[] = [
+  { id: "tracks", label: "Tracks" },
+  { id: "timing", label: "Timing" },
+  { id: "appearance", label: "Appearance" },
 ];
 
 export function SubtitleMenu({ tracks, mpv }: { tracks: Tracks; mpv: MpvState }) {
@@ -36,7 +51,8 @@ export function SubtitleMenu({ tracks, mpv }: { tracks: Tracks; mpv: MpvState })
         </>
       }
       title="Subtitles (s next, c second, z/x delay)"
-      width="w-[25rem]"
+      width="w-[26rem]"
+      panelClassName="flex flex-col overflow-hidden"
       onOpen={tracks.ensureListed}
     >
       {() => <SubtitlePanel tracks={tracks} mpv={mpv} />}
@@ -45,117 +61,290 @@ export function SubtitleMenu({ tracks, mpv }: { tracks: Tracks; mpv: MpvState })
 }
 
 function SubtitlePanel({ tracks, mpv }: { tracks: Tracks; mpv: MpvState }) {
+  const [section, setSection] = useState<Section>("tracks");
   const [lang, setLang] = useState<string | null | "all">("all");
-  const [tab, setTab] = useState<Tab>("all");
+  const [sourceTab, setSourceTab] = useState<SourceTab>("all");
+  const [search, setSearch] = useState("");
+  const id = useId();
   const entries = tracks.subtitles;
   const selected = entries.find((e) => e.selected) ?? null;
 
-  // the language rail, in list order (preferred languages first)
   const languages = useMemo(() => {
     const counts = new Map<string | null, number>();
     for (const e of entries) counts.set(e.lang, (counts.get(e.lang) ?? 0) + 1);
     return [...counts.entries()];
   }, [entries]);
-  const tabs = TABS.filter((t) => t.id === "all" || entries.some(t.has));
-  const activeTab = tabs.find((t) => t.id === tab) ?? TABS[0];
-  const shown = entries.filter((e) => (lang === "all" || e.lang === lang) && activeTab.has(e));
+  const sourceTabs = SOURCE_TABS.filter((t) => t.id === "all" || entries.some(t.has));
+  const activeSource = sourceTabs.find((t) => t.id === sourceTab) ?? SOURCE_TABS[0];
+  const query = search.trim().toLocaleLowerCase();
+  const shown = entries.filter((entry) => {
+    if (lang !== "all" && entry.lang !== lang) return false;
+    if (!activeSource.has(entry)) return false;
+    if (!query) return true;
+    return [entry.title, languageName(entry.lang), ...entry.tags]
+      .join(" ")
+      .toLocaleLowerCase()
+      .includes(query);
+  });
 
   return (
-    <div className="flex flex-col pb-1">
-      <PanelHeading
-        aside={
-          <button
-            role="switch"
-            aria-checked={tracks.enabled}
-            onClick={tracks.enabled ? tracks.subtitlesOff : tracks.subtitlesOn}
-            className={`rounded-md px-2 py-0.5 text-[11.5px] font-semibold ${
-              tracks.enabled ? "bg-accent/20 text-accent" : "bg-raised text-ink-muted hover:text-ink"
-            }`}
-          >
-            {tracks.enabled ? "On" : "Off"}
-          </button>
-        }
-      >
-        Subtitles
-      </PanelHeading>
+    <div className="flex h-[28rem] max-h-[inherit] flex-col">
+      <div className="shrink-0">
+        <PanelHeading
+          aside={
+            <button
+              role="switch"
+              aria-checked={tracks.enabled}
+              onClick={tracks.enabled ? tracks.subtitlesOff : tracks.subtitlesOn}
+              className={`rounded-md px-2.5 py-1 text-[11.5px] font-semibold ${
+                tracks.enabled ? "bg-accent/20 text-accent" : "bg-raised text-ink-muted hover:text-ink"
+              }`}
+            >
+              {tracks.enabled ? "On" : "Off"}
+            </button>
+          }
+        >
+          Subtitles
+        </PanelHeading>
+        <SectionTabs id={id} active={section} onChange={setSection} />
+      </div>
 
-      {languages.length > 1 && (
-        <div className="flex flex-wrap gap-1 px-3 pb-1.5" role="group" aria-label="Language">
-          <RailChip active={lang === "all"} onClick={() => setLang("all")}>
-            All <span className="text-ink-subtle">{entries.length}</span>
-          </RailChip>
-          {languages.map(([code, count]) => (
-            <RailChip key={code ?? "?"} active={lang === code} onClick={() => setLang(code)}>
-              {languageName(code)} <span className="text-ink-subtle">{count}</span>
-            </RailChip>
-          ))}
+      {section === "tracks" && (
+        <TracksView
+          id={id}
+          tracks={tracks}
+          entries={entries}
+          shown={shown}
+          selected={selected}
+          languages={languages}
+          lang={lang}
+          setLang={setLang}
+          sourceTabs={sourceTabs}
+          activeSource={activeSource}
+          setSourceTab={setSourceTab}
+          search={search}
+          setSearch={setSearch}
+          clearFilters={() => {
+            setSearch("");
+            setLang("all");
+            setSourceTab("all");
+          }}
+        />
+      )}
+      {section === "timing" && (
+        <div
+          id={`${id}-timing-panel`}
+          role="tabpanel"
+          aria-labelledby={`${id}-timing-tab`}
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-3 py-3"
+        >
+          <SubtitleDelay
+            value={mpv.subDelay}
+            onChange={(v) => void playerSetProperty("sub-delay", v).catch(() => undefined)}
+          />
+          <SecondaryPicker
+            tracks={tracks}
+            secondarySid={mpv.secondarySid}
+            onBrowse={() => setSection("tracks")}
+          />
         </div>
       )}
-      {tabs.length > 2 && (
-        <div className="flex gap-3 border-b border-edge-soft px-3 text-[11.5px]" role="tablist">
-          {tabs.map((t) => (
+      {section === "appearance" && (
+        <AppearancePanel id={id} style={tracks.style} onChange={tracks.setStyle} />
+      )}
+    </div>
+  );
+}
+
+function SectionTabs({
+  id,
+  active,
+  onChange,
+}: {
+  id: string;
+  active: Section;
+  onChange: (section: Section) => void;
+}) {
+  const onKeyDown = (event: React.KeyboardEvent, current: Section) => {
+    const index = SECTIONS.findIndex((section) => section.id === current);
+    let next = index;
+    if (event.key === "ArrowRight") next = (index + 1) % SECTIONS.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + SECTIONS.length) % SECTIONS.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = SECTIONS.length - 1;
+    else return;
+    event.preventDefault();
+    const section = SECTIONS[next].id;
+    onChange(section);
+    requestAnimationFrame(() => document.getElementById(`${id}-${section}-tab`)?.focus());
+  };
+  return (
+    <div className="flex border-b border-edge-soft px-3" role="tablist" aria-label="Subtitle settings">
+      {SECTIONS.map((section) => (
+        <button
+          key={section.id}
+          id={`${id}-${section.id}-tab`}
+          role="tab"
+          aria-selected={section.id === active}
+          aria-controls={`${id}-${section.id}-panel`}
+          tabIndex={section.id === active ? 0 : -1}
+          onClick={() => onChange(section.id)}
+          onKeyDown={(e) => onKeyDown(e, section.id)}
+          className={`-mb-px h-9 flex-1 border-b-2 text-xs font-semibold transition-colors ${
+            section.id === active
+              ? "border-accent text-ink"
+              : "border-transparent text-ink-subtle hover:text-ink"
+          }`}
+        >
+          {section.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function TracksView({
+  id,
+  tracks,
+  entries,
+  shown,
+  selected,
+  languages,
+  lang,
+  setLang,
+  sourceTabs,
+  activeSource,
+  setSourceTab,
+  search,
+  setSearch,
+  clearFilters,
+}: {
+  id: string;
+  tracks: Tracks;
+  entries: SubtitleEntry[];
+  shown: SubtitleEntry[];
+  selected: SubtitleEntry | null;
+  languages: [string | null, number][];
+  lang: string | null | "all";
+  setLang: (lang: string | null | "all") => void;
+  sourceTabs: typeof SOURCE_TABS;
+  activeSource: (typeof SOURCE_TABS)[number];
+  setSourceTab: (tab: SourceTab) => void;
+  search: string;
+  setSearch: (search: string) => void;
+  clearFilters: () => void;
+}) {
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    listRef.current?.scrollTo({ top: 0 });
+  }, [lang, activeSource, search]);
+
+  return (
+    <div
+      id={`${id}-tracks-panel`}
+      role="tabpanel"
+      aria-labelledby={`${id}-tracks-tab`}
+      className="flex min-h-0 flex-1 flex-col"
+    >
+      <div className="shrink-0 px-3 pb-2 pt-2">
+        {entries.length > 4 && (
+          <label className="relative mb-2 block">
+            <span className="sr-only">Search subtitles</span>
+            <Search
+              size={14}
+              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-subtle"
+            />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Find a subtitle, language or addon…"
+              className="h-9 w-full rounded-md border border-edge bg-canvas/60 pl-8 pr-8 text-xs text-ink outline-none placeholder:text-ink-subtle focus:border-accent"
+            />
+            {search && (
+              <button
+                aria-label="Clear subtitle search"
+                onClick={() => setSearch("")}
+                className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded text-ink-subtle hover:text-ink"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </label>
+        )}
+        {languages.length > 1 && (
+          <div className="no-scrollbar flex gap-1 overflow-x-auto pb-1" role="group" aria-label="Filter by language">
+            <RailChip active={lang === "all"} onClick={() => setLang("all")}>
+              All <span className="text-ink-subtle">{entries.length}</span>
+            </RailChip>
+            {languages.map(([code, count]) => (
+              <RailChip key={code ?? "unknown"} active={lang === code} onClick={() => setLang(code)}>
+                {languageName(code)} <span className="text-ink-subtle">{count}</span>
+              </RailChip>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {sourceTabs.length > 2 && (
+        <div className="flex shrink-0 gap-3 border-b border-edge-soft px-3 text-[11.5px]" role="tablist" aria-label="Subtitle source">
+          {sourceTabs.map((tab) => (
             <button
-              key={t.id}
+              key={tab.id}
               role="tab"
-              aria-selected={t.id === activeTab.id}
-              onClick={() => setTab(t.id)}
-              className={`-mb-px border-b-2 pb-1 pt-0.5 ${
-                t.id === activeTab.id
+              aria-selected={tab.id === activeSource.id}
+              onClick={() => setSourceTab(tab.id)}
+              className={`-mb-px border-b-2 pb-1.5 pt-0.5 ${
+                tab.id === activeSource.id
                   ? "border-accent text-ink"
                   : "border-transparent text-ink-subtle hover:text-ink-muted"
               }`}
             >
-              {t.label}
+              {tab.label}
             </button>
           ))}
         </div>
       )}
 
-      <div className="flex flex-col py-1" role="listbox" aria-label="Subtitles">
+      <div className="shrink-0 px-3 pb-1 pt-1.5 text-[10.5px] text-ink-subtle" aria-live="polite">
+        {shown.length} of {entries.length} subtitles
+      </div>
+      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-0.5" role="listbox" aria-label="Subtitles">
         {shown.map((entry) => (
           <EntryRow key={entry.key} entry={entry} onPick={() => tracks.selectSubtitle(entry)} />
         ))}
         {tracks.listing === "loading" && (
-          <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-ink-subtle">
+          <div className="flex items-center gap-2 px-3 py-2 text-xs text-ink-subtle">
             <span className="h-3 w-3 animate-spin rounded-full border-2 border-edge border-t-accent" />
             Asking your subtitle addons…
           </div>
         )}
         {shown.length === 0 && tracks.listing !== "loading" && (
-          <div className="px-3 py-2 text-xs text-ink-subtle">
-            {entries.length === 0
-              ? "No subtitles found. Add a subtitle addon, or load a file."
-              : "None here."}
+          <div className="px-3 py-4 text-center text-xs leading-relaxed text-ink-subtle">
+            <p>{entries.length === 0 ? "No subtitles found. Add a subtitle addon, or load a file." : "No subtitles match these filters."}</p>
+            {entries.length > 0 && (
+              <button onClick={clearFilters} className="mt-2 rounded-md px-2 py-1 text-accent hover:bg-accent/10">
+                Clear filters
+              </button>
+            )}
           </div>
         )}
         {tracks.listErrors.length > 0 && (
-          <div className="px-3 pt-1 text-[11px] leading-snug text-ink-subtle">
+          <div className="px-3 pb-2 pt-1 text-[11px] leading-snug text-ink-subtle">
             {tracks.listErrors.join(" · ")}
           </div>
         )}
       </div>
 
-      <div className="flex flex-col border-t border-edge-soft pt-1">
-        <div className="flex items-center gap-2 px-3 py-1">
-          <button
-            onClick={tracks.pickLocal}
-            className="flex h-7 items-center gap-1.5 rounded-md bg-raised/70 px-2 text-[11.5px] text-ink-muted hover:bg-elevated hover:text-ink"
-          >
-            <FileUp size={13} />
-            Load from file…
-          </button>
-          {selected?.file && <EncodingPicker entry={selected} onPick={tracks.reencode} />}
-        </div>
-        <DelayRow
-          label="Delay"
-          value={mpv.subDelay}
-          onChange={(v) => void playerSetProperty("sub-delay", v).catch(() => undefined)}
-          hint="z / x: −0.1 s / +0.1 s. Positive shows subtitles later."
-        />
-        {tracks.style && <QuickStyle style={tracks.style} onChange={tracks.setStyle} />}
-        {tracks.secondaryChoices.length > 0 && (
-          <SecondaryPicker tracks={tracks} secondarySid={mpv.secondarySid} />
-        )}
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-edge-soft px-3 py-2">
+        <button
+          onClick={tracks.pickLocal}
+          className="flex h-8 items-center gap-1.5 rounded-md bg-raised/70 px-2.5 text-[11.5px] text-ink-muted hover:bg-elevated hover:text-ink"
+        >
+          <FileUp size={13} />
+          Load from file…
+        </button>
+        {selected?.file && <EncodingPicker entry={selected} onPick={tracks.reencode} />}
       </div>
     </div>
   );
@@ -168,13 +357,13 @@ function RailChip({
 }: {
   active: boolean;
   onClick: () => void;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <button
       aria-pressed={active}
       onClick={onClick}
-      className={`rounded-full px-2 py-0.5 text-[11.5px] ${
+      className={`h-7 shrink-0 whitespace-nowrap rounded-full px-2.5 text-[11px] ${
         active ? "bg-ink text-canvas" : "bg-raised/70 text-ink-muted hover:text-ink"
       }`}
     >
@@ -184,14 +373,15 @@ function RailChip({
 }
 
 function EntryRow({ entry, onPick }: { entry: SubtitleEntry; onPick: () => void }) {
+  const tags = entry.trackId !== null && entry.kind !== "embedded" ? ["Loaded", ...entry.tags] : entry.tags;
   return (
     <button
       role="option"
       aria-selected={entry.selected}
       onClick={onPick}
       disabled={entry.status === "loading"}
-      className={`flex w-full items-start gap-2 px-3 py-1.5 text-left text-sm hover:bg-elevated ${
-        entry.selected ? "text-accent" : "text-ink-muted"
+      className={`flex min-h-10 w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-elevated ${
+        entry.selected ? "bg-accent/5 text-accent" : "text-ink-muted"
       }`}
     >
       <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
@@ -200,14 +390,14 @@ function EntryRow({ entry, onPick }: { entry: SubtitleEntry; onPick: () => void 
         ) : entry.status === "error" ? (
           <AlertTriangle size={13} className="text-[oklch(0.75_0.12_25)]" />
         ) : entry.selected ? (
-          "✓"
+          <Check size={14} strokeWidth={2.5} />
         ) : null}
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="flex items-baseline gap-2">
-          <span className="truncate">{entry.title}</span>
-          <span className="ml-auto shrink-0 truncate text-[10.5px] text-ink-subtle">
-            {entry.tags.join(" · ")}
+          <span className="truncate" title={entry.title}>{entry.title}</span>
+          <span className="ml-auto max-w-[48%] shrink-0 truncate text-[10.5px] text-ink-subtle" title={tags.join(" · ")}>
+            {tags.join(" · ")}
           </span>
         </span>
         {entry.error && (
@@ -220,35 +410,436 @@ function EntryRow({ entry, onPick }: { entry: SubtitleEntry; onPick: () => void 
   );
 }
 
-/** A second subtitle above the first: one already in the player (in the video, or added
- * from an addon or a file). */
-function SecondaryPicker({ tracks, secondarySid }: { tracks: Tracks; secondarySid: string }) {
+function SubtitleDelay({ value, onChange }: { value: number; onChange: (seconds: number) => void }) {
+  const [current, setCurrent] = useState(value);
+  const currentRef = useRef(value);
+  const [draft, setDraft] = useState<string | null>(null);
+  useEffect(() => {
+    currentRef.current = value;
+    setCurrent(value);
+  }, [value]);
+
+  const commit = (next: number) => {
+    if (!Number.isFinite(next)) return;
+    const clamped = Math.min(600, Math.max(-600, Math.round(next * 1000) / 1000));
+    currentRef.current = clamped;
+    setCurrent(clamped);
+    onChange(clamped);
+  };
+  const commitDraft = () => {
+    if (draft?.trim()) commit(Number(draft));
+    setDraft(null);
+  };
+  const step = (delta: number) => commit(currentRef.current + delta);
+  const stepButton = (delta: number) => (
+    <button
+      type="button"
+      onClick={() => step(delta)}
+      className="h-10 rounded-md bg-raised/70 font-mono text-xs text-ink-muted transition-colors hover:bg-elevated hover:text-ink active:bg-raised"
+      aria-label={`${delta > 0 ? "Delay" : "Advance"} subtitles by ${Math.abs(delta)} seconds`}
+    >
+      {delta > 0 ? "+" : "−"}{Math.abs(delta)}
+    </button>
+  );
+
+  return (
+    <section aria-labelledby="subtitle-delay-heading">
+      <div className="mb-2 flex items-baseline justify-between gap-3">
+        <h3 id="subtitle-delay-heading" className="text-sm font-semibold text-ink">Subtitle delay</h3>
+        <span className="text-[10.5px] text-ink-subtle">z / x: −0.1 s / +0.1 s</span>
+      </div>
+      <div className="rounded-lg border border-edge-soft bg-canvas/30 p-3">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <span className="text-xs text-ink-muted">Exact value</span>
+          <label className="flex h-9 items-center rounded-md border border-edge bg-canvas px-2.5 focus-within:border-accent">
+            <input
+              type="number"
+              aria-label="Subtitle delay in seconds"
+              min={-600}
+              max={600}
+              step={0.1}
+              value={draft ?? String(Math.round(current * 1000) / 1000)}
+              onFocus={(e) => {
+                setDraft(String(Math.round(current * 1000) / 1000));
+                e.currentTarget.select();
+              }}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={commitDraft}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+              }}
+              className="w-20 bg-transparent text-right font-mono text-sm tabular-nums text-ink outline-none"
+            />
+            <span className="ml-1.5 text-xs text-ink-subtle">s</span>
+          </label>
+        </div>
+        <input
+          type="range"
+          aria-label="Adjust subtitle delay from minus ten to ten seconds"
+          aria-valuetext={formatDelay(current)}
+          min={-10}
+          max={10}
+          step={0.05}
+          value={Math.min(10, Math.max(-10, current))}
+          onInput={(e) => commit(Number(e.currentTarget.value))}
+          className="h-8 w-full cursor-pointer accent-(--color-accent)"
+        />
+        <div className="flex items-center justify-between text-[10.5px] text-ink-subtle">
+          <span>Earlier</span>
+          <output className="font-mono text-sm tabular-nums text-ink">{formatDelay(current)}</output>
+          <span>Later</span>
+        </div>
+        <div className="mt-2 grid grid-cols-5 gap-1.5">
+          {stepButton(-0.5)}
+          {stepButton(-0.1)}
+          <button
+            type="button"
+            onClick={() => commit(0)}
+            disabled={Math.abs(current) < 1e-6}
+            className="flex h-10 items-center justify-center gap-1 rounded-md px-1 text-[11px] text-ink-subtle hover:bg-elevated hover:text-ink disabled:opacity-40"
+          >
+            <RotateCcw size={12} />
+            Reset
+          </button>
+          {stepButton(0.1)}
+          {stepButton(0.5)}
+        </div>
+      </div>
+      <p className="mt-2 text-[11px] leading-relaxed text-ink-subtle">
+        Positive values show subtitles later; negative values show them earlier. The slider covers ±10 s; exact entry covers ±600 s.
+      </p>
+    </section>
+  );
+}
+
+function SecondaryPicker({
+  tracks,
+  secondarySid,
+  onBrowse,
+}: {
+  tracks: Tracks;
+  secondarySid: string;
+  onBrowse: () => void;
+}) {
   const current = tracks.secondaryChoices.find((e) => String(e.trackId) === secondarySid);
   return (
-    <label className="flex items-center gap-2 px-3 py-1.5" title="c: next second subtitle">
-      <span className="w-[4.5rem] shrink-0 text-xs text-ink-subtle">Second</span>
+    <section aria-labelledby="second-subtitle-heading" className="border-t border-edge-soft pt-3">
+      <h3 id="second-subtitle-heading" className="text-sm font-semibold text-ink">Second subtitle / translation</h3>
+      <p className="mb-2 mt-1 text-[11px] leading-relaxed text-ink-subtle">
+        Show another loaded subtitle above the main one. Load both in Tracks first; the main subtitle stays in place.
+      </p>
       <select
-        aria-label="Second subtitle"
+        aria-label="Second subtitle or translation"
         value={current ? String(current.trackId) : ""}
+        disabled={tracks.secondaryChoices.length === 0}
         onChange={(e) => {
           const picked = tracks.secondaryChoices.find((c) => String(c.trackId) === e.target.value);
           tracks.selectSecondary(picked ?? null);
         }}
-        className="h-7 min-w-0 flex-1 rounded-md border border-edge bg-canvas px-1.5 text-[11.5px] text-ink outline-none"
+        className="h-10 w-full rounded-md border border-edge bg-canvas px-2.5 text-xs text-ink outline-none focus:border-accent disabled:opacity-50"
       >
         <option value="">None</option>
-        {tracks.secondaryChoices.map((e) => (
-          <option key={e.key} value={String(e.trackId)}>
-            {e.title}
-            {e.lang && languageName(e.lang) !== e.title ? ` (${languageName(e.lang)})` : ""}
+        {tracks.secondaryChoices.map((entry) => (
+          <option key={entry.key} value={String(entry.trackId)}>
+            {entry.title}
+            {entry.lang && languageName(entry.lang) !== entry.title ? ` (${languageName(entry.lang)})` : ""}
           </option>
         ))}
       </select>
-    </label>
+      {tracks.secondaryChoices.length === 0 && (
+        <button onClick={onBrowse} className="mt-2 rounded-md px-1 py-1 text-[11px] text-accent hover:bg-accent/10">
+          Browse subtitles to load another
+        </button>
+      )}
+    </section>
   );
 }
 
-/** Read the showing subtitle again as another encoding (for garbled text). */
+function AppearancePanel({
+  id,
+  style,
+  onChange,
+}: {
+  id: string;
+  style: SubtitleStyle | null;
+  onChange: (patch: Partial<SubtitleStyle>) => void;
+}) {
+  if (!style) {
+    return (
+      <div id={`${id}-appearance-panel`} role="tabpanel" aria-labelledby={`${id}-appearance-tab`} className="flex flex-1 items-center justify-center text-xs text-ink-subtle">
+        Loading appearance…
+      </div>
+    );
+  }
+  const customized = Object.values(style).some((value) => value !== null);
+  return (
+    <div
+      id={`${id}-appearance-panel`}
+      role="tabpanel"
+      aria-labelledby={`${id}-appearance-tab`}
+      className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3"
+    >
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-ink">Subtitle appearance</h3>
+          <p className="mt-0.5 text-[10.5px] text-ink-subtle">Changes apply now and are saved for every video.</p>
+        </div>
+        <button
+          onClick={() => onChange(NO_STYLE)}
+          disabled={!customized}
+          className="flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-[11px] text-ink-subtle hover:bg-elevated hover:text-ink disabled:opacity-40"
+        >
+          <RotateCcw size={12} />
+          Reset
+        </button>
+      </div>
+      <StylePreview style={style} />
+
+      <div className="mt-3 flex flex-col gap-3">
+        <StyleLine label="Text size">
+          <Choice
+            label="Subtitle text size"
+            value={style.scale ?? 1}
+            options={[
+              { value: 0.8, label: "80%" },
+              { value: 1, label: "100%" },
+              { value: 1.25, label: "125%" },
+              { value: 1.5, label: "150%" },
+              { value: 1.8, label: "180%" },
+            ]}
+            onChange={(scale) => onChange({ scale })}
+          />
+        </StyleLine>
+        <StyleLine label="Font">
+          <select
+            aria-label="Subtitle font"
+            value={style.font ?? ""}
+            onChange={(e) => onChange({ font: e.target.value || null })}
+            className="h-9 w-full max-w-60 rounded-md border border-edge bg-canvas px-2.5 text-xs text-ink outline-none focus:border-accent"
+          >
+            <option value="">Player default</option>
+            {SUBTITLE_FONTS.map((font) => (
+              <option key={font} value={font}>{font}</option>
+            ))}
+          </select>
+        </StyleLine>
+        <StyleLine label="Text color">
+          <ColorChoices label="Text" value={style.color} fallback="#FFFFFF" onChange={(color) => onChange({ color })} />
+        </StyleLine>
+        <StyleLine label="Outline">
+          <Choice
+            label="Subtitle outline"
+            value={style.outlineSize}
+            options={[
+              { value: 0, label: "None" },
+              { value: 1, label: "Thin" },
+              { value: 2, label: "Medium" },
+              { value: 3.5, label: "Thick" },
+            ]}
+            onChange={(outlineSize) => onChange({ outlineSize })}
+          />
+        </StyleLine>
+        <StyleLine label="Outline color">
+          <ColorChoices
+            label="Outline"
+            value={style.outlineColor}
+            fallback="#000000"
+            colors={[
+              { value: "#000000", label: "Black" },
+              { value: "#FFFFFF", label: "White" },
+              { value: "#FFE14D", label: "Yellow" },
+            ]}
+            onChange={(outlineColor) => onChange({ outlineColor })}
+          />
+        </StyleLine>
+        <StyleLine label="Background">
+          <Choice<Background>
+            label="Subtitle background"
+            value={backgroundOf(style)}
+            options={[
+              { value: "default", label: "Default" },
+              { value: "outline", label: "None" },
+              { value: "box", label: "Box" },
+            ]}
+            onChange={(background) => onChange(backgroundPatch(background))}
+          />
+        </StyleLine>
+        <StyleLine label="Shadow">
+          <Choice<Shadow>
+            label="Subtitle shadow"
+            value={shadowOf(style)}
+            options={[
+              { value: "default", label: "Default" },
+              { value: "none", label: "None" },
+              { value: "soft", label: "Soft" },
+              { value: "strong", label: "Strong" },
+            ]}
+            onChange={(shadow) => onChange(shadowPatch(shadow, style))}
+          />
+        </StyleLine>
+        <StyleLine label="Position">
+          <Choice
+            label="Subtitle position"
+            value={style.pos ?? 100}
+            options={[
+              { value: 100, label: "Bottom" },
+              { value: 92, label: "Raised" },
+              { value: 82, label: "Higher" },
+            ]}
+            onChange={(pos) => onChange({ pos })}
+          />
+        </StyleLine>
+        <StyleLine label="Bold">
+          <Choice<"off" | "on">
+            label="Bold subtitles"
+            value={style.bold === true ? "on" : "off"}
+            options={[
+              { value: "off", label: "Off" },
+              { value: "on", label: "On" },
+            ]}
+            onChange={(bold) => onChange({ bold: bold === "on" })}
+          />
+        </StyleLine>
+      </div>
+
+      <details className="mt-4 border-t border-edge-soft pt-2">
+        <summary className="cursor-pointer rounded-md px-1 py-2 text-xs font-semibold text-ink-muted hover:text-ink">
+          Alignment & styled subtitles
+        </summary>
+        <div className="flex flex-col gap-3 pb-1 pt-2">
+          <StyleLine label="Alignment">
+            <Choice<"left" | "center" | "right">
+              label="Subtitle alignment"
+              value={style.alignX ?? "center"}
+              options={[
+                { value: "left", label: "Left" },
+                { value: "center", label: "Center" },
+                { value: "right", label: "Right" },
+              ]}
+              onChange={(alignX) => onChange({ alignX })}
+            />
+          </StyleLine>
+          <StyleLine label="Placement">
+            <Choice<"top" | "center" | "bottom">
+              label="Subtitle placement"
+              value={style.alignY ?? "bottom"}
+              options={[
+                { value: "top", label: "Top" },
+                { value: "center", label: "Middle" },
+                { value: "bottom", label: "Bottom" },
+              ]}
+              onChange={(alignY) => onChange({ alignY })}
+            />
+          </StyleLine>
+          <StyleLine label="Styled (ASS)">
+            <Choice<"off" | "on">
+              label="Use this appearance for styled ASS subtitles"
+              value={style.assOverride === "force" ? "on" : "off"}
+              options={[
+                { value: "off", label: "Keep own look" },
+                { value: "on", label: "Use my look" },
+              ]}
+              onChange={(override) => onChange({ assOverride: override === "on" ? "force" : null })}
+            />
+          </StyleLine>
+          <p className="text-[10.5px] leading-relaxed text-ink-subtle">
+            Replacing ASS styling can break positioned signs and karaoke. Text subtitles always use this appearance.
+          </p>
+        </div>
+      </details>
+    </div>
+  );
+}
+
+function ColorChoices({
+  label,
+  value,
+  fallback,
+  colors = [
+    { value: "#FFFFFF", label: "White" },
+    { value: "#FFE14D", label: "Yellow" },
+    { value: "#5FE3FF", label: "Cyan" },
+  ],
+  onChange,
+}: {
+  label: string;
+  value: string | null;
+  fallback: string;
+  colors?: { value: string; label: string }[];
+  onChange: (color: string) => void;
+}) {
+  const custom = value !== null && !colors.some((color) => color.value === value.toUpperCase());
+  return (
+    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={`${label} color`}>
+      {colors.map((color) => {
+        const active = value?.toUpperCase() === color.value;
+        return (
+          <button
+            key={color.value}
+            aria-pressed={active}
+            onClick={() => onChange(color.value)}
+            className={`flex h-8 items-center gap-1.5 rounded-md border px-2 text-[11px] ${
+              active ? "border-accent bg-accent/10 text-ink" : "border-edge-soft bg-raised/50 text-ink-muted hover:text-ink"
+            }`}
+          >
+            <span className="h-3 w-3 rounded-full border border-white/20" style={{ backgroundColor: color.value }} />
+            {color.label}
+            {active && <Check size={11} />}
+          </button>
+        );
+      })}
+      <label className={`relative flex h-8 cursor-pointer items-center gap-1.5 rounded-md border px-2 text-[11px] focus-within:outline focus-within:outline-2 focus-within:outline-accent ${
+        custom ? "border-accent bg-accent/10 text-ink" : "border-edge-soft bg-raised/50 text-ink-muted hover:text-ink"
+      }`}>
+        <span className="h-3 w-3 rounded-full border border-white/20" style={{ backgroundColor: colorInputValue(value, fallback) }} />
+        Custom
+        {custom && <Check size={11} />}
+        <input
+          type="color"
+          aria-label={`Custom ${label.toLowerCase()} color`}
+          value={colorInputValue(value, fallback)}
+          onChange={(e) => onChange(e.target.value.toUpperCase())}
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+        />
+      </label>
+    </div>
+  );
+}
+
+function colorInputValue(value: string | null, fallback: string): string {
+  if (value && /^#[0-9a-f]{6}$/i.test(value)) return value;
+  if (value && /^#[0-9a-f]{8}$/i.test(value)) return `#${value.slice(-6)}`;
+  return fallback;
+}
+
+function StylePreview({ style }: { style: SubtitleStyle }) {
+  const height = 112;
+  return (
+    <div
+      aria-hidden
+      className="relative flex items-end justify-center overflow-hidden rounded-lg border border-edge-soft"
+      style={{
+        height,
+        background:
+          "radial-gradient(circle at 30% 30%, oklch(0.55 0.08 60), transparent 55%), linear-gradient(160deg, oklch(0.42 0.06 230), oklch(0.2 0.03 260))",
+      }}
+    >
+      <span className="absolute max-w-[90%] text-center leading-tight" style={previewStyle(style, 200)}>
+        Where were you last night?
+      </span>
+    </div>
+  );
+}
+
+function StyleLine({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <span className="w-[5.5rem] shrink-0 text-xs text-ink-subtle">{label}</span>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
+
 function EncodingPicker({ entry, onPick }: { entry: SubtitleEntry; onPick: (label: string | null) => void }) {
   const current = ENCODINGS.find((e) => e.label.toLowerCase() === entry.encoding?.toLowerCase());
   return (
@@ -257,78 +848,16 @@ function EncodingPicker({ entry, onPick }: { entry: SubtitleEntry; onPick: (labe
         aria-label="Subtitle encoding"
         value=""
         onChange={(e) => onPick(e.target.value === "auto" ? null : e.target.value)}
-        className="h-7 max-w-[12rem] rounded-md border border-edge bg-canvas px-1.5 text-[11.5px] text-ink outline-none"
+        className="h-8 max-w-48 rounded-md border border-edge bg-canvas px-1.5 text-[11.5px] text-ink outline-none focus:border-accent"
       >
         <option value="" disabled>
           Encoding: {current?.name ?? entry.encoding ?? "detected"}
         </option>
         <option value="auto">Detect again</option>
-        {ENCODINGS.map((e) => (
-          <option key={e.label} value={e.label}>
-            {e.name}
-          </option>
+        {ENCODINGS.map((encoding) => (
+          <option key={encoding.label} value={encoding.label}>{encoding.name}</option>
         ))}
       </select>
     </label>
-  );
-}
-
-/** Size, position and background, applied at once and saved for every video. */
-function QuickStyle({
-  style,
-  onChange,
-}: {
-  style: SubtitleStyle;
-  onChange: (patch: Partial<SubtitleStyle>) => void;
-}) {
-  const box = backgroundOf(style) === "box";
-  return (
-    <div className="flex flex-col gap-1.5 px-3 py-1.5">
-      <StyleLine label="Size">
-        <Choice
-          label="Size"
-          value={style.scale ?? 1}
-          options={[
-            { value: 0.8, label: "S" },
-            { value: 1, label: "M" },
-            { value: 1.25, label: "L" },
-            { value: 1.5, label: "XL" },
-          ]}
-          onChange={(scale) => onChange({ scale })}
-        />
-      </StyleLine>
-      <StyleLine label="Position">
-        <Choice
-          label="Position"
-          value={style.pos ?? 100}
-          options={[
-            { value: 100, label: "Bottom" },
-            { value: 92, label: "Raised" },
-            { value: 82, label: "Higher" },
-          ]}
-          onChange={(pos) => onChange({ pos })}
-        />
-      </StyleLine>
-      <StyleLine label="Background">
-        <Choice
-          label="Background"
-          value={box ? "box" : "none"}
-          options={[
-            { value: "none", label: "None" },
-            { value: "box", label: "Box" },
-          ]}
-          onChange={(v) => onChange(backgroundPatch(v === "box" ? "box" : "outline"))}
-        />
-      </StyleLine>
-    </div>
-  );
-}
-
-function StyleLine({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="w-[4.5rem] shrink-0 text-xs text-ink-subtle">{label}</span>
-      {children}
-    </div>
   );
 }
