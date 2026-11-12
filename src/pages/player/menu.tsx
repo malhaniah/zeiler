@@ -2,6 +2,7 @@
  * The control bar's popup menus: a chip button with a panel above it, and the rows and
  * small controls the panels are built from (ControlsBar, SubtitleMenu, AudioMenu).
  */
+import { RotateCcw } from "lucide-react";
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -193,6 +194,80 @@ export function Choice<T extends string | number>({
   );
 }
 
+/** Keyboard-accessible tabs for a player panel with its own scroll regions. */
+export function MenuTabs<T extends string>({
+  id,
+  label,
+  tabs,
+  active,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  tabs: readonly { id: T; label: string }[];
+  active: T;
+  onChange: (tab: T) => void;
+}) {
+  const onKeyDown = (event: React.KeyboardEvent, current: T) => {
+    const index = tabs.findIndex((tab) => tab.id === current);
+    let next = index;
+    if (event.key === "ArrowRight") next = (index + 1) % tabs.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + tabs.length) % tabs.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = tabs.length - 1;
+    else return;
+    event.preventDefault();
+    const tab = tabs[next].id;
+    onChange(tab);
+    requestAnimationFrame(() => document.getElementById(`${id}-${tab}-tab`)?.focus());
+  };
+  return (
+    <div className="flex border-b border-edge-soft px-3" role="tablist" aria-label={label}>
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          id={`${id}-${tab.id}-tab`}
+          role="tab"
+          aria-selected={tab.id === active}
+          aria-controls={`${id}-${tab.id}-panel`}
+          tabIndex={tab.id === active ? 0 : -1}
+          onClick={() => onChange(tab.id)}
+          onKeyDown={(e) => onKeyDown(e, tab.id)}
+          className={`-mb-px h-9 flex-1 border-b-2 text-xs font-semibold transition-colors ${
+            tab.id === active
+              ? "border-accent text-ink"
+              : "border-transparent text-ink-subtle hover:text-ink"
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      aria-pressed={active}
+      onClick={onClick}
+      className={`h-7 shrink-0 whitespace-nowrap rounded-full px-2.5 text-[11px] ${
+        active ? "bg-ink text-canvas" : "bg-raised/70 text-ink-muted hover:text-ink"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 /** "+0.3 s", "−1.25 s", "0.0 s". */
 export function formatDelay(seconds: number): string {
   const rounded = Math.round(seconds * 100) / 100;
@@ -201,52 +276,121 @@ export function formatDelay(seconds: number): string {
   return `${rounded > 0 ? "+" : "−"}${Math.abs(rounded).toFixed(tenths ? 1 : 2)} s`;
 }
 
-/** A delay, nudged in 0.1 s and 0.5 s steps, with reset. */
-export function DelayRow({
+/** A precise delay with immediate local feedback, native range input and direct entry. */
+export function DelayControl({
   label,
+  noun,
   value,
   onChange,
-  hint,
+  shortcut,
+  description,
 }: {
   label: string;
+  /** used in button names: "subtitles" or "audio" */
+  noun: string;
   value: number;
   onChange: (seconds: number) => void;
-  /** the keyboard shortcut, for the tooltip */
-  hint?: string;
+  shortcut?: string;
+  description: string;
 }) {
-  const step = (delta: number) =>
-    onChange(Math.min(600, Math.max(-600, Math.round((value + delta) * 1000) / 1000)));
-  const button = (delta: number) => (
+  const id = useId();
+  const [current, setCurrent] = useState(value);
+  const currentRef = useRef(value);
+  const [draft, setDraft] = useState<string | null>(null);
+  useEffect(() => {
+    currentRef.current = value;
+    setCurrent(value);
+  }, [value]);
+
+  const commit = (next: number) => {
+    if (!Number.isFinite(next)) return;
+    const clamped = Math.min(600, Math.max(-600, Math.round(next * 1000) / 1000));
+    currentRef.current = clamped;
+    setCurrent(clamped);
+    onChange(clamped);
+  };
+  const commitDraft = () => {
+    if (draft?.trim()) commit(Number(draft));
+    setDraft(null);
+  };
+  const step = (delta: number) => commit(currentRef.current + delta);
+  const stepButton = (delta: number) => (
     <button
-      key={delta}
+      type="button"
       onClick={() => step(delta)}
-      className="h-7 rounded-md bg-raised/70 px-1.5 font-mono text-[11px] text-ink-muted hover:bg-elevated hover:text-ink"
-      aria-label={`${label} ${delta > 0 ? "+" : "−"}${Math.abs(delta)} seconds`}
+      className="h-10 rounded-md bg-raised/70 font-mono text-xs text-ink-muted transition-colors hover:bg-elevated hover:text-ink active:bg-raised"
+      aria-label={`${delta > 0 ? "Delay" : "Advance"} ${noun} by ${Math.abs(delta)} seconds`}
     >
-      {delta > 0 ? "+" : "−"}
-      {Math.abs(delta)}
+      {delta > 0 ? "+" : "−"}{Math.abs(delta)}
     </button>
   );
+
   return (
-    <div className="flex items-center gap-1 px-3 py-1.5" title={hint}>
-      <span className="w-14 shrink-0 text-xs text-ink-subtle">{label}</span>
-      {button(-0.5)}
-      {button(-0.1)}
-      <span
-        className="w-[4.5rem] shrink-0 whitespace-nowrap text-center font-mono text-xs text-ink"
-        aria-live="polite"
-      >
-        {formatDelay(value)}
-      </span>
-      {button(0.1)}
-      {button(0.5)}
-      <button
-        onClick={() => onChange(0)}
-        disabled={Math.abs(value) < 1e-6}
-        className="ml-auto h-7 rounded-md px-2 text-[11px] text-ink-subtle hover:text-ink disabled:opacity-40"
-      >
-        Reset
-      </button>
-    </div>
+    <section aria-labelledby={`${id}-heading`}>
+      <div className="mb-2 flex items-baseline justify-between gap-3">
+        <h3 id={`${id}-heading`} className="text-sm font-semibold text-ink">{label}</h3>
+        {shortcut && <span className="text-[10.5px] text-ink-subtle">{shortcut}</span>}
+      </div>
+      <div className="rounded-lg border border-edge-soft bg-canvas/30 p-3">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <span className="text-xs text-ink-muted">Exact value</span>
+          <label className="flex h-9 items-center rounded-md border border-edge bg-canvas px-2.5 focus-within:border-accent">
+            <input
+              type="number"
+              aria-label={`${label} in seconds`}
+              min={-600}
+              max={600}
+              step={0.1}
+              value={draft ?? String(Math.round(current * 1000) / 1000)}
+              onFocus={(e) => {
+                setDraft(String(Math.round(current * 1000) / 1000));
+                e.currentTarget.select();
+              }}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={commitDraft}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+              }}
+              className="w-20 bg-transparent text-right font-mono text-sm tabular-nums text-ink outline-none"
+            />
+            <span className="ml-1.5 text-xs text-ink-subtle">s</span>
+          </label>
+        </div>
+        <input
+          type="range"
+          aria-label={`Adjust ${label.toLowerCase()} from minus ten to ten seconds`}
+          aria-valuetext={formatDelay(current)}
+          min={-10}
+          max={10}
+          step={0.05}
+          value={Math.min(10, Math.max(-10, current))}
+          onInput={(e) => commit(Number(e.currentTarget.value))}
+          className="h-8 w-full cursor-pointer accent-(--color-accent)"
+        />
+        <div className="flex items-center justify-between text-[10.5px] text-ink-subtle">
+          <span>Earlier</span>
+          <output className="font-mono text-sm tabular-nums text-ink">{formatDelay(current)}</output>
+          <span>Later</span>
+        </div>
+        <div className="mt-2 grid grid-cols-5 gap-1.5">
+          {stepButton(-0.5)}
+          {stepButton(-0.1)}
+          <button
+            type="button"
+            onClick={() => commit(0)}
+            disabled={Math.abs(current) < 1e-6}
+            className="flex h-10 items-center justify-center gap-1 rounded-md px-1 text-[11px] text-ink-subtle hover:bg-elevated hover:text-ink disabled:opacity-40"
+          >
+            <RotateCcw size={12} />
+            Reset
+          </button>
+          {stepButton(0.1)}
+          {stepButton(0.5)}
+        </div>
+      </div>
+      <p className="mt-2 text-[11px] leading-relaxed text-ink-subtle">
+        {description} The slider covers ±10 s; exact entry covers ±600 s.
+      </p>
+    </section>
   );
 }

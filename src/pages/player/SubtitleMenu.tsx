@@ -21,7 +21,7 @@ import {
 } from "../../lib/subtitle-style";
 import { ENCODINGS, languageName } from "../../lib/subtitles";
 import type { SubtitleStyle } from "../../lib/types";
-import { Choice, formatDelay, PanelHeading, PopupMenu } from "./menu";
+import { Choice, DelayControl, FilterChip, MenuTabs, PanelHeading, PopupMenu } from "./menu";
 import type { MpvState } from "./mpv-state";
 import type { SubtitleEntry, Tracks } from "./useTracks";
 
@@ -106,7 +106,7 @@ function SubtitlePanel({ tracks, mpv }: { tracks: Tracks; mpv: MpvState }) {
         >
           Subtitles
         </PanelHeading>
-        <SectionTabs id={id} active={section} onChange={setSection} />
+        <MenuTabs id={id} label="Subtitle settings" tabs={SECTIONS} active={section} onChange={setSection} />
       </div>
 
       {section === "tracks" && (
@@ -138,9 +138,13 @@ function SubtitlePanel({ tracks, mpv }: { tracks: Tracks; mpv: MpvState }) {
           aria-labelledby={`${id}-timing-tab`}
           className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-3 py-3"
         >
-          <SubtitleDelay
+          <DelayControl
+            label="Subtitle delay"
+            noun="subtitles"
             value={mpv.subDelay}
             onChange={(v) => void playerSetProperty("sub-delay", v).catch(() => undefined)}
+            shortcut="z / x: −0.1 s / +0.1 s"
+            description="Positive values show subtitles later; negative values show them earlier."
           />
           <SecondaryPicker
             tracks={tracks}
@@ -152,53 +156,6 @@ function SubtitlePanel({ tracks, mpv }: { tracks: Tracks; mpv: MpvState }) {
       {section === "appearance" && (
         <AppearancePanel id={id} style={tracks.style} onChange={tracks.setStyle} />
       )}
-    </div>
-  );
-}
-
-function SectionTabs({
-  id,
-  active,
-  onChange,
-}: {
-  id: string;
-  active: Section;
-  onChange: (section: Section) => void;
-}) {
-  const onKeyDown = (event: React.KeyboardEvent, current: Section) => {
-    const index = SECTIONS.findIndex((section) => section.id === current);
-    let next = index;
-    if (event.key === "ArrowRight") next = (index + 1) % SECTIONS.length;
-    else if (event.key === "ArrowLeft") next = (index - 1 + SECTIONS.length) % SECTIONS.length;
-    else if (event.key === "Home") next = 0;
-    else if (event.key === "End") next = SECTIONS.length - 1;
-    else return;
-    event.preventDefault();
-    const section = SECTIONS[next].id;
-    onChange(section);
-    requestAnimationFrame(() => document.getElementById(`${id}-${section}-tab`)?.focus());
-  };
-  return (
-    <div className="flex border-b border-edge-soft px-3" role="tablist" aria-label="Subtitle settings">
-      {SECTIONS.map((section) => (
-        <button
-          key={section.id}
-          id={`${id}-${section.id}-tab`}
-          role="tab"
-          aria-selected={section.id === active}
-          aria-controls={`${id}-${section.id}-panel`}
-          tabIndex={section.id === active ? 0 : -1}
-          onClick={() => onChange(section.id)}
-          onKeyDown={(e) => onKeyDown(e, section.id)}
-          className={`-mb-px h-9 flex-1 border-b-2 text-xs font-semibold transition-colors ${
-            section.id === active
-              ? "border-accent text-ink"
-              : "border-transparent text-ink-subtle hover:text-ink"
-          }`}
-        >
-          {section.label}
-        </button>
-      ))}
     </div>
   );
 }
@@ -274,13 +231,13 @@ function TracksView({
         )}
         {languages.length > 1 && (
           <div className="no-scrollbar flex gap-1 overflow-x-auto pb-1" role="group" aria-label="Filter by language">
-            <RailChip active={lang === "all"} onClick={() => setLang("all")}>
+            <FilterChip active={lang === "all"} onClick={() => setLang("all")}>
               All <span className="text-ink-subtle">{entries.length}</span>
-            </RailChip>
+            </FilterChip>
             {languages.map(([code, count]) => (
-              <RailChip key={code ?? "unknown"} active={lang === code} onClick={() => setLang(code)}>
+              <FilterChip key={code ?? "unknown"} active={lang === code} onClick={() => setLang(code)}>
                 {languageName(code)} <span className="text-ink-subtle">{count}</span>
-              </RailChip>
+              </FilterChip>
             ))}
           </div>
         )}
@@ -350,28 +307,6 @@ function TracksView({
   );
 }
 
-function RailChip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      aria-pressed={active}
-      onClick={onClick}
-      className={`h-7 shrink-0 whitespace-nowrap rounded-full px-2.5 text-[11px] ${
-        active ? "bg-ink text-canvas" : "bg-raised/70 text-ink-muted hover:text-ink"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
 function EntryRow({ entry, onPick }: { entry: SubtitleEntry; onPick: () => void }) {
   const tags = entry.trackId !== null && entry.kind !== "embedded" ? ["Loaded", ...entry.tags] : entry.tags;
   return (
@@ -407,108 +342,6 @@ function EntryRow({ entry, onPick }: { entry: SubtitleEntry; onPick: () => void 
         )}
       </span>
     </button>
-  );
-}
-
-function SubtitleDelay({ value, onChange }: { value: number; onChange: (seconds: number) => void }) {
-  const [current, setCurrent] = useState(value);
-  const currentRef = useRef(value);
-  const [draft, setDraft] = useState<string | null>(null);
-  useEffect(() => {
-    currentRef.current = value;
-    setCurrent(value);
-  }, [value]);
-
-  const commit = (next: number) => {
-    if (!Number.isFinite(next)) return;
-    const clamped = Math.min(600, Math.max(-600, Math.round(next * 1000) / 1000));
-    currentRef.current = clamped;
-    setCurrent(clamped);
-    onChange(clamped);
-  };
-  const commitDraft = () => {
-    if (draft?.trim()) commit(Number(draft));
-    setDraft(null);
-  };
-  const step = (delta: number) => commit(currentRef.current + delta);
-  const stepButton = (delta: number) => (
-    <button
-      type="button"
-      onClick={() => step(delta)}
-      className="h-10 rounded-md bg-raised/70 font-mono text-xs text-ink-muted transition-colors hover:bg-elevated hover:text-ink active:bg-raised"
-      aria-label={`${delta > 0 ? "Delay" : "Advance"} subtitles by ${Math.abs(delta)} seconds`}
-    >
-      {delta > 0 ? "+" : "−"}{Math.abs(delta)}
-    </button>
-  );
-
-  return (
-    <section aria-labelledby="subtitle-delay-heading">
-      <div className="mb-2 flex items-baseline justify-between gap-3">
-        <h3 id="subtitle-delay-heading" className="text-sm font-semibold text-ink">Subtitle delay</h3>
-        <span className="text-[10.5px] text-ink-subtle">z / x: −0.1 s / +0.1 s</span>
-      </div>
-      <div className="rounded-lg border border-edge-soft bg-canvas/30 p-3">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <span className="text-xs text-ink-muted">Exact value</span>
-          <label className="flex h-9 items-center rounded-md border border-edge bg-canvas px-2.5 focus-within:border-accent">
-            <input
-              type="number"
-              aria-label="Subtitle delay in seconds"
-              min={-600}
-              max={600}
-              step={0.1}
-              value={draft ?? String(Math.round(current * 1000) / 1000)}
-              onFocus={(e) => {
-                setDraft(String(Math.round(current * 1000) / 1000));
-                e.currentTarget.select();
-              }}
-              onChange={(e) => setDraft(e.target.value)}
-              onBlur={commitDraft}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") e.currentTarget.blur();
-              }}
-              className="w-20 bg-transparent text-right font-mono text-sm tabular-nums text-ink outline-none"
-            />
-            <span className="ml-1.5 text-xs text-ink-subtle">s</span>
-          </label>
-        </div>
-        <input
-          type="range"
-          aria-label="Adjust subtitle delay from minus ten to ten seconds"
-          aria-valuetext={formatDelay(current)}
-          min={-10}
-          max={10}
-          step={0.05}
-          value={Math.min(10, Math.max(-10, current))}
-          onInput={(e) => commit(Number(e.currentTarget.value))}
-          className="h-8 w-full cursor-pointer accent-(--color-accent)"
-        />
-        <div className="flex items-center justify-between text-[10.5px] text-ink-subtle">
-          <span>Earlier</span>
-          <output className="font-mono text-sm tabular-nums text-ink">{formatDelay(current)}</output>
-          <span>Later</span>
-        </div>
-        <div className="mt-2 grid grid-cols-5 gap-1.5">
-          {stepButton(-0.5)}
-          {stepButton(-0.1)}
-          <button
-            type="button"
-            onClick={() => commit(0)}
-            disabled={Math.abs(current) < 1e-6}
-            className="flex h-10 items-center justify-center gap-1 rounded-md px-1 text-[11px] text-ink-subtle hover:bg-elevated hover:text-ink disabled:opacity-40"
-          >
-            <RotateCcw size={12} />
-            Reset
-          </button>
-          {stepButton(0.1)}
-          {stepButton(0.5)}
-        </div>
-      </div>
-      <p className="mt-2 text-[11px] leading-relaxed text-ink-subtle">
-        Positive values show subtitles later; negative values show them earlier. The slider covers ±10 s; exact entry covers ±600 s.
-      </p>
-    </section>
   );
 }
 
