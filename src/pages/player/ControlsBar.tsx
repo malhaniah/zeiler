@@ -3,7 +3,7 @@
  * buffered range, skip-segment highlights and chapters), play/pause, time, volume and
  * mute, the streams menu (StreamsMenu:
  * the video's other streams), the audio and subtitle menus (AudioMenu, SubtitleMenu:
- * tracks, sources, delays, quick style), playback speed,
+ * tracks, sources, timing, appearance), playback speed,
  * fullscreen and — for an external mpv window — Stop. Position-driven
  * parts subscribe to the playback clock themselves, so a time-pos tick re-renders only
  * them.
