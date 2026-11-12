@@ -86,7 +86,7 @@ export function UpdatePrompt() {
       {error && !ready && (
         <div
           role="alert"
-          className="fixed bottom-5 right-5 z-[150] flex max-w-sm items-start gap-3 rounded-2xl border border-edge-soft bg-elevated px-4 py-3.5 shadow-[0_18px_50px_-20px_rgba(0,0,0,0.65)]"
+          className="fixed inset-x-4 bottom-5 z-[150] mx-auto flex w-auto max-w-sm items-start gap-3 rounded-2xl border border-edge-soft bg-elevated px-4 py-3.5 shadow-[0_18px_50px_-20px_rgba(0,0,0,0.65)]"
         >
           <div className="flex min-w-0 flex-col gap-1">
             <span className="text-[13px] font-semibold text-ink">Update failed</span>
@@ -112,7 +112,7 @@ export function UpdatePrompt() {
         onClick={(e) => {
           if (e.target === e.currentTarget) dismiss();
         }}
-        className="animate-modal-in max-h-[85vh] w-[calc(100%-3rem)] max-w-[440px] overflow-y-auto rounded-[24px] border border-edge-soft bg-elevated p-0 text-ink shadow-[0_30px_80px_-25px_rgba(0,0,0,0.85)] backdrop:bg-black/65 backdrop:backdrop-blur-sm"
+        className="animate-modal-in fixed inset-0 m-auto h-fit max-h-[85vh] w-[calc(100%-3rem)] max-w-[440px] overflow-y-auto rounded-[24px] border border-edge-soft bg-elevated p-0 text-ink shadow-[0_30px_80px_-25px_rgba(0,0,0,0.85)] backdrop:bg-black/65 backdrop:backdrop-blur-sm"
       >
         <div className="px-7 py-7">
           <div className="flex items-start justify-between">
