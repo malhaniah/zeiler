@@ -23,6 +23,14 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 Upload the signed release and store listing to internal testing
 
+### android assets
+
+```sh
+[bundle exec] fastlane android assets
+```
+
+Update promotional images without replacing the uploaded AAB
+
 ----
 
 This README.md is auto-generated and will be re-generated every time [_fastlane_](https://fastlane.tools) is run.
