@@ -8,7 +8,7 @@
  * parts subscribe to the playback clock themselves, so a time-pos tick re-renders only
  * them.
  */
-import { Maximize, Pause, Play, RotateCcw, Square, Volume2, VolumeX } from "lucide-react";
+import { Gauge, Maximize, Pause, Play, RotateCcw, Square, Volume2, VolumeX } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { type MpvChapter, playerCommand, playerSetProperty } from "../../lib/player-ipc";
 import { segmentLabel, type SkipSegment } from "../../lib/skip";
@@ -63,13 +63,14 @@ export function ControlsBar({
   const live = useLive();
   return (
     <div
+      inert={!shown}
       className={`absolute inset-x-0 bottom-0 flex flex-col gap-1.5 bg-gradient-to-t from-canvas/90 to-transparent px-4 pb-3 pt-10 transition-opacity duration-300 ${
         shown ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
     >
       {tracks.notice && <Notice text={tracks.notice} onDismiss={tracks.dismissNotice} />}
       {!live && <SeekBar clock={clock} chapters={mpv.chapters} segments={skipSegments} onPoke={onPoke} />}
-      <div className="no-scrollbar flex items-center gap-2 overflow-x-auto sm:gap-3">
+      <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto sm:gap-3">
         <PlayPauseButton clock={clock} ended={ended} onClick={controls.togglePauseOrReplay} />
         {live ? <LiveBadge /> : <TimeReadout clock={clock} />}
         <VolumeControl
@@ -155,7 +156,7 @@ function TimeReadout({ clock }: { clock: PlaybackClock }) {
   const position = useClock(clock, (s) => Math.floor(Math.max(0, s.timePos)));
   const duration = useClock(clock, (s) => Math.floor(Math.max(0, s.duration)));
   return (
-    <span className="font-display text-xs tabular-nums text-ink-muted">
+    <span className="shrink-0 whitespace-nowrap font-display text-xs tabular-nums text-ink-muted">
       {formatTime(position)} / {duration > 0 ? formatTime(duration) : "--:--"}
     </span>
   );
@@ -303,7 +304,7 @@ function VolumeControl({
         max={Math.max(ceiling, level)}
         step={1}
         value={mute ? 0 : level}
-        className="h-11 w-24 cursor-pointer accent-(--color-accent)"
+        className="hidden h-11 w-24 cursor-pointer accent-(--color-accent) sm:block"
         onInput={(e) => onVolume(Number(e.currentTarget.value))}
       />
     </div>
@@ -314,7 +315,12 @@ function SpeedMenu({ speed }: { speed: number }) {
   const label = (s: number) => (s === 1 ? "Normal" : `${s}×`);
   return (
     <PopupMenu
-      label={speed === 1 ? "1×" : `${Math.round(speed * 100) / 100}×`}
+      label={
+        <>
+          <Gauge size={15} />
+          <span>{speed === 1 ? "1×" : `${Math.round(speed * 100) / 100}×`}</span>
+        </>
+      }
       title="Playback speed ([ / ])"
     >
       {(close) =>

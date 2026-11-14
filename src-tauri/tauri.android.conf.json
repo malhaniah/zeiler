@@ -1,0 +1,8 @@
+{
+  "version": "../package.json",
+  "bundle": {
+    "android": {
+      "minSdkVersion": 24
+    }
+  }
+}

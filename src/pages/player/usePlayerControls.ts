@@ -360,6 +360,7 @@ export function usePlayerKeys({
       // the focused volume slider moves itself with the arrow keys (and applies it);
       // on the seek bar, preventDefault below keeps its 0.1 s native step from running
       if (typing || (ownsArrows && e.key.startsWith("Arrow"))) return;
+      if (target instanceof HTMLButtonElement && e.key.startsWith("Arrow")) return;
       if (e.key === "f" && onFullscreen) {
         onFullscreen();
         return;
@@ -372,6 +373,26 @@ export function usePlayerKeys({
           e.preventDefault();
           if (target instanceof HTMLButtonElement) target.blur();
           controls.togglePauseOrReplay();
+          break;
+        // Android remotes: media keys, and the D-pad's centre when no control has focus
+        case "Enter":
+          if (target instanceof HTMLButtonElement || target instanceof HTMLInputElement) break;
+          e.preventDefault();
+          controls.togglePauseOrReplay();
+          break;
+        case "MediaPlayPause":
+        case "MediaPlay":
+        case "MediaPause":
+          e.preventDefault();
+          controls.togglePauseOrReplay();
+          break;
+        case "MediaFastForward":
+          e.preventDefault();
+          controls.seekBy(SEEK_STEP_SEC);
+          break;
+        case "MediaRewind":
+          e.preventDefault();
+          controls.seekBy(-SEEK_STEP_SEC);
           break;
         case "ArrowLeft":
           e.preventDefault();

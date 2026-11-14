@@ -7,19 +7,20 @@
 
 <h1 align="center">Zeiler</h1>
 
-<p align="center">A free, open-source desktop client for the Stremio addon ecosystem, built in Rust.</p>
+<p align="center">A free, open-source client for the Stremio addon ecosystem, built in Rust for desktop, Android phones and Android TV.</p>
 
 <p align="center">
   <a href="https://github.com/malhaniah/zeiler/releases/latest"><img src="https://img.shields.io/github/v/release/malhaniah/zeiler" alt="Latest release"></a>
   <a href="https://github.com/malhaniah/zeiler/actions/workflows/ci.yml"><img src="https://github.com/malhaniah/zeiler/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/malhaniah/zeiler" alt="License: GPL-3.0"></a>
-  <img src="https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-555" alt="Platforms: Windows, macOS, Linux">
+  <img src="https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Android-555" alt="Platforms: Windows, macOS, Linux, Android">
 </p>
 
 Zeiler is a self-contained media client that speaks the open
 [Stremio addon protocol](https://github.com/Stremio/stremio-addon-sdk/blob/master/docs/protocol.md):
-a built-in torrent streaming engine, mpv-based playback and its own player screen, with no
-external streaming server, no browser and no Node runtime required. It is in early development.
+a built-in torrent streaming engine, native playback and its own player screen, with no
+external streaming server, no browser and no Node runtime required. Desktop playback uses
+libmpv or an external mpv; Android uses Media3. It is in early development.
 
 > Zeiler hosts no media, indexes no media, and ships no content addon.
 > You bring your own addons; Zeiler is just the boat.
@@ -65,26 +66,26 @@ removes Sailor. On macOS the updated app keeps its old name in Applications: ren
 - **Skip and next episode.** Intros, recaps and credits can be skipped (by themselves too, with an Undo), and the next episode plays from the same source when one ends. Skip times come from AniSkip and TheIntroDB, which then learn which title and episode you play; Settings → Player & quality turns that off.
 - **Subtitles and audio.** Subtitles in your languages from the video, your subtitle addons or a file, picked automatically, with delay, encoding and style controls, per-show memory and a second subtitle track. Audio tracks and delay, volume normalization, and volume above 100%.
 - **Catalogs for every type.** Movies, Shows and Anime rooms with genre rows from your addons' manifests, every other type on Home, a Browse screen for any catalog and its filters, and Home rows you can move, hide and rename. Adult catalogs stay hidden unless you turn them on.
-- **Live TV.** Channels from your addons' tv and channel catalogs, plus your own IPTV: M3U and Xtream Codes playlists with an XMLTV guide for now and next. Playlist credentials go to your system's keychain, never to a file.
+- **Live TV.** Channels from your addons' tv and channel catalogs, plus your own IPTV: M3U and Xtream Codes playlists with an XMLTV guide for now and next. Playlist credentials are protected by the system keychain, or Android Keystore on Android.
 - **Addon marketplace.** Paste an addon URL, or browse an opt-in community directory in which every listing is labelled "not reviewed by Zeiler". Every install goes through a confirmation dialog, and installed addons can be updated, reconfigured and reordered. `stremio://` links can open in Zeiler on Windows and Linux (opt-in).
 - **Local profiles.** Everyone sharing the computer gets their own addons, library and preferences, with an optional PIN.
 - **Optional Stremio account sync.** Sign a profile in to a Stremio account, with a code you confirm in the browser or with email and password, to sync its library and, if you choose, its addons with Stremio's own apps.
 - **Responsive cinematic interface.** Nebula's sea-ink and gold design system with bundled Sora and Manrope fonts, left navigation on wide screens, touch-friendly bottom navigation on smaller screens, immersive title artwork, and responsive rails, episodes, search and playback controls. Purposeful transitions respect reduced-motion settings.
 - **Installable web shell.** The PWA caches its shell for offline launches. This release still requires the desktop app for catalogs, accounts and playback.
 - **Updates itself.** Signed updates from GitHub releases install automatically the next time you open Zeiler, and a dialog lets you restart and update as soon as a download is ready.
-- **Rust core.** The addon protocol client, streaming engine, playback orchestration and sync rules are Rust crates; the UI is a thin TypeScript layer in a Tauri 2 shell. Windows, macOS and Linux.
+- **Rust core.** The addon protocol client, streaming engine, playback orchestration and sync rules are Rust crates; the UI is a thin TypeScript layer in a Tauri 2 shell. Windows, macOS, Linux, Android phones and Android TV.
 
 ## Privacy
 
 Zeiler has no telemetry and no account of its own. Signed out, it talks only to the
-addons you install (and the built-ins you leave on), to GitHub for updates, to AniSkip,
+addons you install (and the built-ins you leave on), to GitHub for desktop updates, to AniSkip,
 Kitsu and TheIntroDB for skip times unless you turn that off, to the addon directories
 once you turn the directory on, and to any IPTV provider you add yourself. If you sign a profile in to a
 Stremio account, Zeiler sends Stremio's servers (api.strem.io, link.stremio.com) your
 sign-in (a code you confirm in the browser, or your email and password), your library
 items (titles, progress, watched marks) and, if you turn on addon sync, your addons'
 addresses, including any keys inside configured ones. The session key is kept in your
-system's keychain if you ask to stay signed in (otherwise only in memory until Zeiler
+system's keychain (Android Keystore on Android) if you ask to stay signed in (otherwise only in memory until Zeiler
 quits); nothing else goes to Stremio, and nothing is sent there once you sign out.
 
 ## Architecture
@@ -93,7 +94,7 @@ quits); nothing else goes to Stremio, and nothing is sent there once you sign ou
 | --- | --- |
 | `crates/zeiler-addon` | Stremio addon-protocol client (manifests, catalogs, meta, streams, subtitles) |
 | `crates/zeiler-engine` | Built-in BitTorrent streaming engine (librqbit) exposing local HTTP streams |
-| `crates/zeiler-player` | Playback: embedded libmpv (Windows, macOS), or the user's mpv remote-controlled over JSON IPC |
+| `crates/zeiler-player` | Playback: embedded libmpv or remote-controlled mpv on desktop, Media3 on Android |
 | `crates/zeiler-account` | Library items, playback-progress rules and the watched bitfield (Stremio-compatible) |
 | `crates/zeiler-skip` | Skip segments from AniSkip and TheIntroDB |
 | `crates/zeiler-iptv` | M3U, Xtream Codes and XMLTV parsing and fetching |
@@ -105,8 +106,8 @@ quits); nothing else goes to Stremio, and nothing is sent there once you sign ou
 ## Building from source
 
 Prerequisites: Rust (stable, MSVC toolchain on Windows), Node.js ≥ 22, and
-[mpv](https://mpv.io) for playback (install it on your PATH, or set its location in
-Settings — Zeiler works without it, but can't play anything).
+[mpv](https://mpv.io) for desktop playback (install it on your PATH, or set its location in
+Settings — Zeiler works without it, but can't play anything on desktop).
 
 ```bash
 npm install
@@ -118,6 +119,23 @@ pinned libmpv first — see [CONTRIBUTING.md](CONTRIBUTING.md#built-in-playback-
 `npm run tauri build`. Architecture notes live in
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); third-party attribution in
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
+For Android, install a JDK, Android SDK/NDK and the `aarch64-linux-android` and
+`armv7-linux-androideabi` Rust targets, then:
+
+```bash
+npm run tauri android init --ci
+node scripts/third-party-licenses.mjs --target aarch64-linux-android --features tauri/custom-protocol
+npm run tauri android build --target aarch64 armv7 --apk --aab
+```
+
+`src-tauri/tauri.android.conf.json` takes the version from `package.json` and derives the
+Play `versionCode`. Release signing reads `src-tauri/gen/android/keystore.properties`
+(copy `keystore.properties.example`, keeping the real file and keystore out of Git), or the
+`ZEILER_ANDROID_*` environment variables supported by `app/build.gradle.kts`. The
+`fastlane internal` lane uploads the signed AAB and `fastlane/metadata/android` listing to
+Play internal testing when `GOOGLE_PLAY_SERVICE_ACCOUNT_FILE` points to an authorized
+service-account JSON.
 
 ## Contributing
 

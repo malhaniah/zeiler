@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 /// The keychain service name.
+#[cfg(not(target_os = "android"))]
 pub const SERVICE: &str = "io.zeiler.desktop";
 
 /// Where the key ended up.
@@ -67,6 +68,7 @@ impl SecretStore for MemoryStore {
 /// halve (the same store as M9's IPTV credentials, whose playlist URLs get long).
 pub struct KeyringStore;
 
+#[cfg(not(target_os = "android"))]
 impl SecretStore for KeyringStore {
     fn get(&self, account: &str) -> Option<String> {
         let bytes = keyring::Entry::new(SERVICE, account)
@@ -86,6 +88,21 @@ impl SecretStore for KeyringStore {
         if let Ok(entry) = keyring::Entry::new(SERVICE, account) {
             let _ = entry.delete_credential();
         }
+    }
+}
+
+#[cfg(target_os = "android")]
+impl SecretStore for KeyringStore {
+    fn get(&self, account: &str) -> Option<String> {
+        crate::android_secrets::get(account)
+    }
+
+    fn set(&self, account: &str, secret: &str) -> Result<(), String> {
+        crate::android_secrets::set(account, secret)
+    }
+
+    fn delete(&self, account: &str) {
+        crate::android_secrets::delete(account);
     }
 }
 

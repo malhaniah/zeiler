@@ -7,7 +7,7 @@ import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 export const chip =
-  "flex h-10 shrink-0 items-center gap-1.5 rounded-md bg-canvas/50 px-3 text-sm text-ink-muted transition-[background-color,color,transform] duration-150 hover:bg-elevated hover:text-ink active:scale-95";
+  "flex h-10 shrink-0 items-center gap-0 rounded-md bg-canvas/50 px-2 text-[0px] text-ink-muted transition-[background-color,color,transform] duration-150 hover:bg-elevated hover:text-ink active:scale-95 sm:gap-1.5 sm:px-3 sm:text-sm";
 
 /** Marks an open menu panel: the mouse wheel then scrolls it rather than set the volume
  * (`usePlayerWheel`). */
@@ -119,6 +119,7 @@ export function PopupMenu({
             className={`animate-player-menu-in fixed z-[120] max-w-[calc(100vw-1.5rem)] rounded-xl border border-edge bg-surface py-1 shadow-2xl ${panelClassName ?? "overflow-y-auto"} ${width}`}
             style={position}
             onClick={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
           >
             {children(close)}
           </div>,

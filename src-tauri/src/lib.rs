@@ -1,4 +1,6 @@
 mod account;
+#[cfg(target_os = "android")]
+mod android_secrets;
 mod builtin;
 mod catalog_cache;
 mod commands;
@@ -14,6 +16,10 @@ mod settings_groups;
 mod state;
 mod streams_cache;
 mod subtitles;
+#[cfg(desktop)]
+mod updater;
+#[cfg(not(desktop))]
+#[path = "updater_mobile.rs"]
 mod updater;
 mod window_state;
 
@@ -25,6 +31,7 @@ use tracing::{error, info};
 use crate::library::{LIBRARY_CHANGED, LibraryChanged, LibraryState};
 use crate::state::AppState;
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -33,6 +40,7 @@ pub fn run() {
         )
         .init();
 
+    #[allow(unused_mut)]
     let mut builder = tauri::Builder::default();
     #[cfg(desktop)]
     {
@@ -45,6 +53,12 @@ pub fn run() {
             // a stremio:// link opened while Zeiler runs (deeplink.rs)
             tauri::async_runtime::spawn(deeplink::handle_args(app.clone(), argv, false));
         }));
+    }
+    #[cfg(target_os = "android")]
+    {
+        builder = builder
+            .plugin(commands::mpv::android::plugin())
+            .plugin(android_secrets::plugin());
     }
 
     builder

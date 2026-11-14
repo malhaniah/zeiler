@@ -192,6 +192,9 @@ function main() {
 
   const rust = rustLicences(target, opts.features);
   const npm = npmLicences();
+  const androidNotices = target.includes("android")
+    ? tidy(readFileSync(join(root, "src-tauri", "licenses", "ANDROID-NOTICES.txt"), "utf8"))
+    : null;
   const build = opts.features ? `${target}, features: ${opts.features}` : target;
   // the Windows build with built-in playback also bundles libmpv-2.dll
   const libmpv = target.includes("windows") && /\bembedded\b/.test(opts.features ?? "");
@@ -237,6 +240,7 @@ function main() {
     "=".repeat(80),
     "",
     ...npm.map((p) => section(`${p.name} ${p.version} (${p.identifier ?? "see below"})`, null, p.text)),
+    ...(androidNotices ? ["", "PART 3: ANDROID AND KOTLIN LIBRARIES", "=".repeat(80), "", androidNotices] : []),
   ].join("\n");
 
   mkdirSync(dirname(out), { recursive: true });

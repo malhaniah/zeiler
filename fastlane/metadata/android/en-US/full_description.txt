@@ -1,0 +1,28 @@
+Zeiler is a free, open-source client for the Stremio addon ecosystem, built for Android phones, tablets, Android TV, and Google TV.
+
+YOU BRING THE CONTENT
+Zeiler hosts no media, indexes no media, and ships no stream addons. Install the addons you choose to browse their catalogs and play the sources they provide. Built-in Cinemeta, Anime Kitsu, and OpenSubtitles integrations provide metadata and subtitles only; each can be switched off.
+
+YOUR LIBRARY, WHEREVER YOU WATCH
+• Home, Discover, Movies, Shows, Anime, and Live TV
+• Local profiles with separate addons, settings, and libraries
+• Continue Watching, watch history, episode marks, and resume points
+• Optional Stremio account sign-in and library sync
+• Optional addon sync with your Stremio account
+• M3U and Xtream IPTV sources with XMLTV guide support
+
+A NATIVE PLAYER
+• Native Media3 playback on Android
+• Touch controls on phones and D-pad controls on TV
+• Audio and subtitle track selection
+• Playback speed, volume, seeking, and fullscreen
+• Direct HTTP(S) streams and a built-in BitTorrent engine
+• Stream headers and IPTV credentials handled by the native core
+
+OPEN AND PRIVATE
+Zeiler has no ads, analytics, or Zeiler account. Data stays on your device unless you use a third-party addon, IPTV provider, subtitle service, or optional Stremio sync. Android Keystore protects saved account and IPTV secrets. Torrent streams connect to trackers, DHT, and peers like other BitTorrent clients.
+
+Zeiler is free software licensed under GPL-3.0-or-later. It is independent and is not affiliated with or endorsed by Stremio (Smart Code Ltd). You are responsible for the addons and sources you use and for having permission to access and share content.
+
+Source code: https://github.com/malhaniah/zeiler
+Privacy policy: https://zeiler.malghamdi.dev/privacy/

@@ -5,11 +5,12 @@
  * drawn outside Tauri (the browser smoke tests).
  */
 import { useEffect, useState } from "react";
+import { IS_ANDROID } from "../lib/platform";
 
 const IN_TAURI = "__TAURI_INTERNALS__" in window;
 
 export function WindowControls() {
-  return IN_TAURI ? <Controls /> : null;
+  return IN_TAURI && !IS_ANDROID ? <Controls /> : null;
 }
 
 function Controls() {

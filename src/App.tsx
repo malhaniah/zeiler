@@ -74,22 +74,26 @@ function Shell() {
 
   return (
     <div className="relative flex h-full">
-      {!hideMobileNav && <Sidebar />}
-      {!hideMobileNav && <MobileNav />}
-      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] xl:pb-0">
+      <div className="contents" inert={overlays.length > 0}>
+        {!hideMobileNav && <Sidebar />}
+        {!hideMobileNav && <MobileNav />}
+      </div>
+      <div className="app-content relative flex min-h-0 min-w-0 flex-1 flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] xl:pb-0">
         {/* top fade so content scrolling under the fixed topbar stays legible */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 z-30 h-24 bg-gradient-to-b from-canvas/85 via-canvas/40 to-transparent"
         />
-        <div key={root} className="animate-view-in flex min-h-0 flex-1 flex-col">
+        <div key={root} className="animate-view-in flex min-h-0 flex-1 flex-col" inert={overlays.length > 0}>
           <RootViewHost view={root} />
         </div>
         {overlays.map((frame, i) => (
           <OverlayFrame key={`${frame.kind}-${i}`} frame={frame} />
         ))}
       </div>
-      <Topbar />
+      <div className="contents" inert={overlays.length > 0}>
+        <Topbar />
+      </div>
       <SearchOverlay />
       <UpdatePrompt />
       <InstallHost />
@@ -179,40 +183,58 @@ function isOverlay(frame: Frame): boolean {
 
 
 function OverlayFrame({ frame }: { frame: Frame }) {
-  switch (frame.kind) {
-    case "meta":
-      return <DetailView type={frame.type} id={frame.id} preview={frame.preview} />;
-    case "picker":
-      return (
-        // a new picker for another video or a request for the list: fresh state
-        <PlayPickerView
-          key={`${frame.video?.id ?? frame.meta.id}:${frame.choose ? "choose" : "play"}`}
-          meta={frame.meta}
-          video={frame.video}
-          choose={frame.choose}
-        />
-      );
-    case "settings":
-      return (
-        <div className="absolute inset-0 z-40">
-          <SettingsView />
-        </div>
-      );
-    case "browse":
-      return <BrowseView frame={frame} />;
-    case "addon-detail":
-      return <AddonDetailView listingKey={frame.key} />;
-    // root views render in RootViewHost
-    case "home":
-    case "discover":
-    case "movies":
-    case "shows":
-    case "anime":
-    case "library":
-    case "addons":
-    case "live":
-      return null;
-    default:
-      return unreachable(frame);
-  }
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!document.documentElement.classList.contains("android-tv")) return;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frameElement = ref.current;
+    const focus = window.setTimeout(() => {
+      frameElement
+        ?.querySelector<HTMLElement>("button:not(:disabled), a[href], input:not(:disabled), [tabindex='0']")
+        ?.focus();
+    }, 0);
+    return () => {
+      window.clearTimeout(focus);
+      if (previous?.isConnected) previous.focus();
+    };
+  }, [frame]);
+
+  const content = (() => {
+    switch (frame.kind) {
+      case "meta":
+        return <DetailView type={frame.type} id={frame.id} preview={frame.preview} />;
+      case "picker":
+        return (
+          <PlayPickerView
+            key={`${frame.video?.id ?? frame.meta.id}:${frame.choose ? "choose" : "play"}`}
+            meta={frame.meta}
+            video={frame.video}
+            choose={frame.choose}
+          />
+        );
+      case "settings":
+        return (
+          <div className="absolute inset-0 z-40">
+            <SettingsView />
+          </div>
+        );
+      case "browse":
+        return <BrowseView frame={frame} />;
+      case "addon-detail":
+        return <AddonDetailView listingKey={frame.key} />;
+      case "home":
+      case "discover":
+      case "movies":
+      case "shows":
+      case "anime":
+      case "library":
+      case "addons":
+      case "live":
+        return null;
+      default:
+        return unreachable(frame);
+    }
+  })();
+
+  return <div ref={ref} className="contents">{content}</div>;
 }

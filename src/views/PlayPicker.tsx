@@ -16,6 +16,7 @@ import {
   playerActive,
   subscribeLaunchFailures,
 } from "../lib/playback-handoff";
+import { IS_ANDROID } from "../lib/platform";
 import { useSearch, useSettings } from "../lib/store";
 import {
   bestRow,
@@ -610,7 +611,7 @@ function StreamRow({
         </div>
       </div>
       <div className="flex items-center gap-3">
-        {playable(stream) && (
+        {!IS_ANDROID && playable(stream) && (
           <button
             onClick={onPlayExternal}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-raised text-ink-muted transition-colors hover:bg-elevated hover:text-ink"

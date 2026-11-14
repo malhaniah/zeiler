@@ -5,6 +5,7 @@ import App from "./App";
 import { WebShell } from "./chrome/WebShell";
 import { isPlayerHash, playerActive, subscribeRoute } from "./lib/playback-handoff";
 import { PlayerPage } from "./pages/player/PlayerPage";
+import "./lib/platform";
 import "./index.css";
 
 const IN_TAURI = "__TAURI_INTERNALS__" in window;

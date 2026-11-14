@@ -247,6 +247,13 @@ with `codesign --force --deep --sign - Zeiler.app`). In
   corresponding source, for no more than the cost of providing it — ask by opening an
   issue at <https://github.com/malhaniah/zeiler/issues>.
 
+## Android and Kotlin libraries (Apache-2.0)
+
+Android playback uses **Media3 1.11.1** (ExoPlayer, HLS and UI). The Android shell also
+includes AndroidX, Material Components, Kotlin and Tauri's Android runtime. Their Apache
+License 2.0 text and attribution ship in `src-tauri/licenses/ANDROID-NOTICES.txt`, which
+`scripts/third-party-licenses.mjs` includes in Android release bundles.
+
 ## Rust crates and npm packages
 
 Besides the libraries above, Zeiler compiles in several hundred Rust crates (mostly MIT

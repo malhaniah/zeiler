@@ -21,6 +21,7 @@ import {
 } from "../components/ui";
 import { errorMessage, updateCheck, updateInstallNow, updateStatus } from "../lib/ipc";
 import { type PlayerBackends, playerBackends } from "../lib/player-ipc";
+import { IS_ANDROID } from "../lib/platform";
 import { useAddons, useSettings } from "../lib/store";
 import { THEME_PRESETS } from "../lib/theme";
 import type { PlayerBackend } from "../lib/types";
@@ -270,6 +271,7 @@ function PlayerSection() {
       id: "external",
       label: "External mpv",
       sub: "Plays in its own mpv window, with your mpv settings. Zeiler's player screen controls it.",
+      unavailable: IS_ANDROID ? "External mpv is available on desktop only." : undefined,
     },
   ];
 
@@ -318,58 +320,60 @@ function PlayerSection() {
         )}
       </SectionCard>
 
-      <SectionCard
-        title="mpv"
-        description={
-          !backends
-            ? undefined
-            : builtInAvailable
-              ? "Only needed if you choose External mpv."
-              : "Zeiler plays videos with mpv on this computer."
-        }
-      >
-        <div className="text-[13.5px]">
-          {!backends ? (
-            <span className="text-ink-subtle">Looking for mpv…</span>
-          ) : external?.available ? (
-            <StatusOk>
-              Found <span className="font-mono text-[11.5px] font-normal">{external.path}</span>
-            </StatusOk>
-          ) : mpvNeeded ? (
-            <span className="font-medium text-[oklch(0.75_0.12_25)]">
-              Not found. Install mpv from mpv.io, or set where it is below.
-            </span>
-          ) : (
-            <span className="text-ink-muted">Not installed.</span>
-          )}
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <span className="text-[12px] font-medium uppercase tracking-[0.14em] text-ink-subtle">
-            mpv location — optional
-          </span>
-          <div className="flex gap-2">
-            <input
-              value={path}
-              onChange={(e) => setPath(e.target.value)}
-              aria-label="mpv location"
-              placeholder={MPV_PLACEHOLDER}
-              className="h-12 w-full rounded-xl border border-edge bg-canvas px-4 font-mono text-[12.5px] text-ink outline-none placeholder:text-ink-subtle focus:border-ink"
-            />
-            <button
-              onClick={async () => {
-                await save({ mpvPath: path.trim() || null });
-                setBackends(await playerBackends().catch(() => null));
-              }}
-              className="flex h-12 shrink-0 items-center rounded-xl bg-ink px-5 text-[13.5px] font-semibold text-canvas transition-transform hover:scale-[1.02] active:scale-[0.97]"
-            >
-              Save
-            </button>
+      {!IS_ANDROID && (
+        <SectionCard
+          title="mpv"
+          description={
+            !backends
+              ? undefined
+              : builtInAvailable
+                ? "Only needed if you choose External mpv."
+                : "Zeiler plays videos with mpv on this computer."
+          }
+        >
+          <div className="text-[13.5px]">
+            {!backends ? (
+              <span className="text-ink-subtle">Looking for mpv…</span>
+            ) : external?.available ? (
+              <StatusOk>
+                Found <span className="font-mono text-[11.5px] font-normal">{external.path}</span>
+              </StatusOk>
+            ) : mpvNeeded ? (
+              <span className="font-medium text-[oklch(0.75_0.12_25)]">
+                Not found. Install mpv from mpv.io, or set where it is below.
+              </span>
+            ) : (
+              <span className="text-ink-muted">Not installed.</span>
+            )}
           </div>
-          <span className="text-[12px] text-ink-subtle">
-            Leave empty and Zeiler finds mpv on its own.
-          </span>
-        </div>
-      </SectionCard>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[12px] font-medium uppercase tracking-[0.14em] text-ink-subtle">
+              mpv location — optional
+            </span>
+            <div className="flex gap-2">
+              <input
+                value={path}
+                onChange={(e) => setPath(e.target.value)}
+                aria-label="mpv location"
+                placeholder={MPV_PLACEHOLDER}
+                className="h-12 w-full rounded-xl border border-edge bg-canvas px-4 font-mono text-[12.5px] text-ink outline-none placeholder:text-ink-subtle focus:border-ink"
+              />
+              <button
+                onClick={async () => {
+                  await save({ mpvPath: path.trim() || null });
+                  setBackends(await playerBackends().catch(() => null));
+                }}
+                className="flex h-12 shrink-0 items-center rounded-xl bg-ink px-5 text-[13.5px] font-semibold text-canvas transition-transform hover:scale-[1.02] active:scale-[0.97]"
+              >
+                Save
+              </button>
+            </div>
+            <span className="text-[12px] text-ink-subtle">
+              Leave empty and Zeiler finds mpv on its own.
+            </span>
+          </div>
+        </SectionCard>
+      )}
 
       <SectionCard title="Starting playback">
         <ToggleRow
@@ -696,7 +700,7 @@ function AboutSection() {
         <dl className="flex flex-col gap-3">
           {[
             ["Version", version],
-            ["Build", "Desktop (Tauri 2 / WebView2)"],
+            ["Build", IS_ANDROID ? "Android (Tauri 2 / Media3)" : "Desktop (Tauri 2)"],
             ["License", "GPL-3.0-or-later — free and open source"],
           ].map(([label, value]) => (
             <div key={label} className="flex items-baseline justify-between gap-6">
@@ -708,7 +712,7 @@ function AboutSection() {
           ))}
         </dl>
       </SectionCard>
-      <UpdatesCard />
+      {!IS_ANDROID && <UpdatesCard />}
       <div className="rounded-2xl bg-canvas/30 p-5">
         <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-subtle">
           Legal

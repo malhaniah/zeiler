@@ -1,6 +1,7 @@
 # Zeiler architecture
 
-Zeiler is a free, open-source (GPL-3.0-or-later) desktop client for the Stremio ecosystem.
+Zeiler is a free, open-source (GPL-3.0-or-later) client for the Stremio ecosystem on
+Windows, macOS, Linux, Android phones and Android TV.
 It hosts no media, indexes no media, and ships no content addon — users install their own
 addon URLs. This document records the load-bearing decisions and the shape of the codebase.
 
@@ -13,7 +14,7 @@ addon URLs. This document records the load-bearing decisions and the shape of th
 | UI | Vite 8 + React 19 + TypeScript ~6.0 + Tailwind 4 | Current stable stack; matches the create-tauri-app template. |
 | Protocol client | Hand-rolled `zeiler-addon` crate | `stremio-core` is git-only (frozen 0.1.0), framework-shaped (Elm runtime + static `Env`), hardwired to api.strem.io (incl. unauthenticated SeekLog telemetry), and assumes Stremio's `server.js` for torrents. The protocol surface is small; we mirror stremio-core's lenient serde semantics (MIT, referenced with attribution). |
 | Torrent engine | librqbit, in-process | Pure Rust, Apache-2.0, first-class streaming (sequential priority + HTTP Range endpoint). Pinned to a git rev of `main` until 9.0.2 ships (crates.io 9.0.1 lacks three Windows fixes: NTFS sparse marking #681, DHT death on UDP 10054 #690, stream-during-init #689). |
-| Playback | mpv, two backends behind one session | Embedded libmpv (`libmpv2` 6.x crate; video under the transparent webview — Windows `wid`+HWND_BOTTOM, macOS the render API into an NSOpenGLView; the default on Windows and macOS releases) or the user's own `mpv` in its own window, remote-controlled over mpv's JSON IPC (Linux, and anywhere embedded is unavailable). libmpv is a link-time dependency, so the embedded backend is the `embedded` cargo feature: Windows and macOS release builds turn it on and ship a hash-pinned LGPL libmpv (`scripts/fetch-libmpv.mjs`: `libmpv-2.dll` on Windows, dylibs built from pinned sources in `Contents/Frameworks` on macOS); plain dev builds leave it off. See "Player backends". |
+| Playback | One session API; libmpv/mpv on desktop, Media3 on Android | Embedded libmpv (`libmpv2` 6.x crate; video under the transparent webview — Windows `wid`+HWND_BOTTOM, macOS the render API into an NSOpenGLView; the default on Windows and macOS releases) or the user's own `mpv` in its own window, remote-controlled over mpv's JSON IPC (Linux, and anywhere embedded is unavailable). Android's Kotlin Media3 plugin renders into a SurfaceView under the same webview and maps the validated mpv-shaped commands and events, preserving the player UI and library progress. libmpv is a link-time dependency, so the desktop embedded backend is the `embedded` cargo feature: Windows and macOS release builds turn it on and ship a hash-pinned LGPL libmpv; plain dev builds leave it off. See "Player backends". |
 | Content neutrality | No seeded stream addons; built-ins are metadata or subtitles only, switchable, never streams | Unlike Harbor (which also seeds Torrentio), Zeiler builds in only metadata and subtitle addons — Cinemeta and Anime Kitsu (metadata) and OpenSubtitles v3 (subtitles) — from manifest snapshots compiled into the app (`src-tauri/builtin/`), each switchable in Settings → Content. A test fails the build if a built-in declares a `stream` resource. Stream addons are installed only by the user, behind a confirmation dialog showing the live manifest (name, version, resources, p2p/adult hints): from a pasted URL, an opt-in `stremio://` link, or the opt-in addon directory. |
 | Addon directory | Opt-in browsing of third-party listings (stremio-addons.net, Stremio's `addon_catalog`) | Zeiler curates, ranks and seeds nothing: no featured rails, no recommendations, no bundled list; the only orderings are the directory's own stars, listing date, or name. Every listing is labelled "not reviewed by Zeiler"; adult listings are hidden unless `showAdult`; every install goes through the confirmation dialog, which fetches the live manifest and shows where it differs from the listing. Nothing is fetched before `marketplaceEnabled`. |
 | Stremio account | Opt-in, per profile; link-code sign-in first, password second; the key in the OS keychain | Off until a profile signs in. Hand-rolled client of the account API (`zeiler-sync`, stremio-core's request shapes, an honest `Zeiler/<version>` user agent); never the telemetry or premium endpoints (events, seekLog, getSkipGaps, …). See "Account sync". |
@@ -30,7 +31,7 @@ zeiler/
     zeiler-addon/         # Stremio addon protocol: types, URL builder, HTTP client, fan-out
     zeiler-engine/        # librqbit session + local stream endpoint for the player
     zeiler-iptv/          # user IPTV: M3U and Xtream channel lists, XMLTV guides
-    zeiler-player/        # player session: external mpv over JSON IPC; embedded libmpv (feature)
+    zeiler-player/        # one session API: mpv on desktop; host players such as Android Media3
     zeiler-skip/          # skip segments (intro/recap/credits) from AniSkip and TheIntroDB
     zeiler-streams/       # stream tags (resolution, source, HDR, audio…), episode matching, ranking
     zeiler-sync/          # opt-in Stremio account: API client + library/addon sync rules
@@ -831,13 +832,23 @@ exchange items with Stremio's own apps without loss or surprises.
 
 ## Player backends
 
-`zeiler-player` owns one backend-neutral `Session` (`Embedded | External`) with
+`zeiler-player` owns one backend-neutral `Session` (`Embedded | External | Host`) with
 `load`, `set_property`, `command`, `get_property` (answered through a oneshot) and
-`quit`; both backends emit the same `PlayerEvent` stream and observe the same property
-set (`OBSERVED` in `crates/zeiler-player/src/lib.rs`). The shell
-(`src-tauri/src/commands/mpv/`) keeps at most one session and forwards its events as
-`player://event`; events of a replaced session are dropped.
+`quit`; every backend emits the same `PlayerEvent` stream and observes the same property
+set (`OBSERVED` in `crates/zeiler-player/src/lib.rs`). `Host` is the platform-driven
+`HostPlayer` trait used by Android Media3; it reports as the embedded backend because its
+video also sits beneath the webview. The shell (`src-tauri/src/commands/mpv/`) keeps at
+most one session and forwards its events as `player://event`; events of a replaced
+session are dropped.
 
+- **Android Media3** (`commands/mpv/android.rs`, `gen/android/.../TvPlayerPlugin.kt`).
+  A Tauri Kotlin plugin owns ExoPlayer, a `SurfaceView` below the transparent WebView and
+  a `SubtitleView` between them. Rust sends the same validated requests, properties and
+  commands as for mpv; the plugin maps them to Media3 and returns mpv-shaped events over
+  a plugin channel. HLS, embedded and external subtitles, audio/track selection and
+  playback progress use the existing screen and stores. Media3 refuses subtitle delay,
+  a second subtitle and mpv-specific styling. Android Keystore encrypts Stremio and IPTV
+  secrets in the app's private storage (`android_secrets.rs`, `SecretsPlugin.kt`).
 - **Choosing a backend** (in Rust, because embedded init and video-output failures
   are synchronous). `player_start`'s `backend` defaults to `auto`, which follows the
   `playerBackend` setting. `auto` = embedded when this build has it and it starts,
@@ -1074,6 +1085,18 @@ is up; leaving the player pops the history entry it pushed.
   `about.toml`, plus Vite's `build.license` report) in `release.yml`'s `licenses` job.
   The file is git-ignored; `src-tauri/build.rs` writes a placeholder for other builds,
   since `tauri_build` refuses a missing resource.
+- Android (`tauri.android.conf.json`, committed `gen/android`): one package supports
+  phones, tablets and Android TV (`LEANBACK_LAUNCHER`, a 320×180 banner, touchscreen and
+  Leanback both optional), API 24+ and target API 37. `package.json` supplies the version;
+  Android derives `versionCode` as major×1,000,000 + minor×1,000 + patch. Release builds
+  ship arm64-v8a and armeabi-v7a with 16 KB-aligned native libraries. Signing uses the
+  ignored `keystore.properties` or `ZEILER_ANDROID_*` environment variables, never a
+  committed key. `fastlane internal` uploads the signed AAB and localized metadata to
+  Play internal testing using `GOOGLE_PLAY_SERVICE_ACCOUNT_FILE`. Android uses Play or
+  a same-signed newer APK for updates, not the desktop updater plugin. Its network
+  security config permits the engine's loopback HTTP and the plain-HTTP streams the
+  desktop also accepts. Android third-party notices include the Maven/Kotlin libraries
+  in `ANDROID-NOTICES.txt` as well as the Rust and npm licenses.
 - Windows installer: NSIS per-user only (no MSI/WiX). Unsigned builds will trip
   SmartScreen/Smart App Control — SignPath Foundation (free for GPL) is the plan.
 

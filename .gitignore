@@ -31,3 +31,6 @@ Thumbs.db
 .devrun.log
 .vite-preview.log
 .release-build.log
+**/service-account*.json
+**/*service-account*.json
+**/play-console*.json

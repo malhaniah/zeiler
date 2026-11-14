@@ -104,6 +104,7 @@ impl WindowState {
             let _ = window.set_position(PhysicalPosition::new(bounds.x, bounds.y));
             let _ = window.set_size(PhysicalSize::new(bounds.width, bounds.height));
         }
+        #[cfg(desktop)]
         if saved.maximized {
             let _ = window.maximize();
         }

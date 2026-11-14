@@ -10,7 +10,7 @@ export function Sidebar() {
   const primary = primaryNavigation(settings?.hideAnime, settings?.hideLiveTv);
 
   return (
-    <aside className="relative z-[60] hidden w-60 shrink-0 flex-col border-r border-edge-soft bg-canvas xl:flex">
+    <aside className="app-sidebar relative z-[60] hidden w-60 shrink-0 flex-col border-r border-edge-soft bg-canvas xl:flex">
       <button
         data-tauri-drag-region
         onClick={() => setView("home")}

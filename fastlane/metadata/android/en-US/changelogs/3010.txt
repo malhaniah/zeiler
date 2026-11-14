@@ -1,0 +1,1 @@
+Initial Android internal testing build for phones, tablets, Android TV, and Google TV. Includes native Media3 playback, profiles, addons, library progress, optional Stremio sync, IPTV, and D-pad navigation.

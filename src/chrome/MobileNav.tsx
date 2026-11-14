@@ -32,7 +32,7 @@ export function MobileNav() {
     <>
       <nav
         aria-label="Main navigation"
-        className="fixed inset-x-0 bottom-0 z-[65] grid grid-cols-5 border-t border-edge-soft bg-canvas/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md xl:hidden"
+        className="app-mobile-nav fixed inset-x-0 bottom-0 z-[65] grid grid-cols-5 border-t border-edge-soft bg-canvas/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md xl:hidden"
       >
         {mobile.map((entry) => (
           <MobileNavItem key={entry.view} entry={entry} active={view === entry.view} onSelect={select} />

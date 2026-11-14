@@ -254,3 +254,24 @@ dialog::backdrop {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+.android-tv .app-sidebar {
+  display: flex;
+}
+.android-tv .app-mobile-nav {
+  display: none;
+}
+.android-tv .app-content {
+  padding-bottom: 0;
+}
+.android-tv .app-hero {
+  height: 88svh;
+  min-height: 0;
+}
+.android-tv .scroll-snap-x-mandatory,
+.android-tv [data-poster-row] {
+  scroll-snap-type: none;
+}
+.android-tv [data-poster-row] > * {
+  scroll-snap-align: none;
+}

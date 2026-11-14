@@ -53,8 +53,8 @@ export function HeroCarousel({
 
   const shell =
     variant === "card"
-      ? "group relative h-[560px] cursor-pointer overflow-hidden rounded-[28px] bg-canvas"
-      : "group relative h-[76svh] min-h-[540px] cursor-pointer overflow-hidden bg-canvas sm:h-[78vh] sm:min-h-[640px]";
+      ? "app-hero group relative h-[560px] cursor-pointer overflow-hidden rounded-[28px] bg-canvas"
+      : "app-hero group relative h-[76svh] min-h-[540px] cursor-pointer overflow-hidden bg-canvas sm:h-[78vh] sm:min-h-[640px]";
 
   return (
     <div className="flex flex-col gap-4">
@@ -63,6 +63,10 @@ export function HeroCarousel({
         style={{ isolation: "isolate" }}
         onMouseEnter={() => (hovered.current = true)}
         onMouseLeave={() => (hovered.current = false)}
+        onFocusCapture={() => (hovered.current = true)}
+        onBlurCapture={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) hovered.current = false;
+        }}
         onClick={() => onOpen(items[safeActive])}
       >
         {items.map((meta, i) => (

@@ -103,7 +103,11 @@ export function Row({
       <div ref={containerRef} className="group/row relative min-w-0">
         <div
           ref={trackRef}
+          data-poster-row
           onScroll={onScroll}
+          onFocusCapture={(e) => {
+            (e.target as HTMLElement).scrollIntoView({ block: "nearest", inline: "nearest" });
+          }}
           className="no-scrollbar -m-5 grid grid-flow-col gap-5 overflow-x-auto scroll-pl-5 p-5 [scroll-snap-type:x_proximity] sm:[scroll-snap-type:x_mandatory] [&>*]:[scroll-snap-align:start]"
           style={{ gridAutoColumns: `${cellWidth}px` }}
         >

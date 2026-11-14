@@ -224,6 +224,7 @@ export function PlayerChrome({
           a drag region are here too; double-click fullscreen stays on the video) */}
       <div
         data-tauri-drag-region
+        inert={!controlsShown}
         onDoubleClick={(e) => e.stopPropagation()}
         className={`absolute inset-x-0 top-0 flex items-center gap-3 bg-gradient-to-b from-canvas/85 to-transparent px-4 pb-8 pt-3 transition-opacity duration-300 ${
           controlsShown ? "opacity-100" : "pointer-events-none opacity-0"

@@ -7,6 +7,9 @@
 //!   mpv the v0.1 way (URL on stdin, no control afterwards).
 //! - **embedded** (`embedded` feature, [`embedded`]): libmpv in-process, rendering
 //!   into a native child window under the transparent webview.
+//! - **host** ([`HostPlayer`]): a player the platform runs and the shell drives, such as
+//!   Media3 on Android (the Android TV prototype). It takes mpv's property and command
+//!   names, so it counts as the embedded backend: its video also sits under the webview.
 //!
 //! [`Session`] is the backend-neutral handle the shell keeps for whichever is playing.
 
@@ -232,11 +235,29 @@ pub enum SessionError {
     Mpv(String),
 }
 
+/// A future a [`HostPlayer`] returns.
+pub type HostFuture<'a, T> =
+    std::pin::Pin<Box<dyn std::future::Future<Output = Result<T, SessionError>> + Send + 'a>>;
+
+/// A player run by the platform rather than by mpv (Android's Media3), driven by the
+/// shell. It is handed the same validated property writes and commands as mpv, in mpv's
+/// names, and reports through the same [`PlayerEvent`]s; what it cannot do it refuses
+/// with [`SessionError::Mpv`].
+pub trait HostPlayer: Send + Sync {
+    fn load(&self, request: PlaybackRequest) -> HostFuture<'_, ()>;
+    fn set_property<'a>(&'a self, name: &'a str, value: Value) -> HostFuture<'a, ()>;
+    fn command(&self, args: Vec<String>) -> HostFuture<'_, ()>;
+    fn get_property<'a>(&'a self, name: &'a str) -> HostFuture<'a, Value>;
+    /// Never blocks; a `Shutdown` event follows.
+    fn quit(&self);
+}
+
 /// One running player, whichever backend it is on.
 pub enum Session {
     #[cfg(feature = "embedded")]
     Embedded(embedded::EmbeddedPlayer),
     External(external_ipc::ExternalIpcPlayer),
+    Host(Box<dyn HostPlayer>),
 }
 
 impl Session {
@@ -245,6 +266,7 @@ impl Session {
             #[cfg(feature = "embedded")]
             Session::Embedded(_) => Backend::Embedded,
             Session::External(_) => Backend::External,
+            Session::Host(_) => Backend::Embedded,
         }
     }
 
@@ -254,6 +276,7 @@ impl Session {
             #[cfg(feature = "embedded")]
             Session::Embedded(player) => player.load(request).map_err(embedded_error),
             Session::External(player) => player.load(&request).await,
+            Session::Host(player) => player.load(request).await,
         }
     }
 
@@ -265,6 +288,7 @@ impl Session {
                 .set_property(name.to_string(), value)
                 .map_err(embedded_error),
             Session::External(player) => player.set_property(name, value).await,
+            Session::Host(player) => player.set_property(name, value).await,
         }
     }
 
@@ -274,6 +298,7 @@ impl Session {
             #[cfg(feature = "embedded")]
             Session::Embedded(player) => player.command(args).map_err(embedded_error),
             Session::External(player) => player.command(args).await,
+            Session::Host(player) => player.command(args).await,
         }
     }
 
@@ -284,6 +309,7 @@ impl Session {
             #[cfg(feature = "embedded")]
             Session::Embedded(player) => player.command_checked(args).await,
             Session::External(player) => player.command(args).await,
+            Session::Host(player) => player.command(args).await,
         }
     }
 
@@ -293,6 +319,7 @@ impl Session {
             #[cfg(feature = "embedded")]
             Session::Embedded(player) => player.get_property(name.to_string()).await,
             Session::External(player) => player.get_property(name).await,
+            Session::Host(player) => player.get_property(name).await,
         }
     }
 
@@ -302,6 +329,7 @@ impl Session {
             #[cfg(feature = "embedded")]
             Session::Embedded(player) => player.quit(),
             Session::External(player) => player.quit(),
+            Session::Host(player) => player.quit(),
         }
     }
 }
