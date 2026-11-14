@@ -80,6 +80,7 @@ export default defineConfig({
       input: {
         main: resolve(root, "index.html"),
         download: resolve(root, "download/index.html"),
+        privacy: resolve(root, "privacy/index.html"),
       },
     },
   },

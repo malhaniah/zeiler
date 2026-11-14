@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!--csp-->
+    <title>Privacy policy — Zeiler</title>
+    <meta name="description" content="How Zeiler handles local data, optional accounts, addons, network requests and BitTorrent connections.">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#0f1b2d">
+    <link rel="icon" href="/favicon.png" type="image/png">
+    <link rel="canonical" href="__SITE_URL__/privacy/">
+    <link rel="stylesheet" href="/src/style.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="wrap header-inner">
+        <a class="brand" href="../" aria-label="Zeiler home">
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="/logo-white.png">
+            <img src="/logo-black.png" alt="" width="36" height="36">
+          </picture>
+          <span>Zeiler</span>
+        </a>
+        <nav aria-label="Main"><ul class="nav"><li><a href="../download/">Download</a></li><li><a href="https://github.com/malhaniah/zeiler">GitHub</a></li></ul></nav>
+      </div>
+    </header>
+
+    <main id="main" class="wrap narrow prose">
+      <p class="eyebrow">Zeiler privacy policy</p>
+      <h1>Your media and settings belong to you.</h1>
+      <p>Zeiler has no advertising, analytics, crash-reporting service, or Zeiler account. We do not operate a server that receives your library, addons, viewing history, or media. This policy explains the local data the app keeps and the third parties it contacts when you use its features.</p>
+
+      <h2>Information stored on your device</h2>
+      <p>Zeiler stores the profiles, settings, addon addresses, library items, watch progress, subtitle choices, and IPTV source names needed to provide the app. These remain in the app’s private storage until you delete them, clear the app’s data, or uninstall it.</p>
+      <p>When you ask to stay signed in to Stremio, the session key is stored in the operating system’s credential store. IPTV playlist addresses and account credentials are stored there too. On Android, these values are encrypted with a key held by Android Keystore. On macOS, Windows, and Linux, Zeiler uses the system keychain or credential manager. If no system store is available, secrets remain in memory only and disappear when the app closes.</p>
+
+      <h2>Requests Zeiler makes</h2>
+      <p>Zeiler has no telemetry of its own, but its features contact third parties directly from your device:</p>
+      <ul>
+        <li><strong>Built-in metadata and subtitles.</strong> Cinemeta, Anime Kitsu, and OpenSubtitles v3 receive the catalog, title, episode, or subtitle requests needed to answer them. Each built-in can be disabled in Settings.</li>
+        <li><strong>Your addons and IPTV providers.</strong> Addon addresses and IPTV playlists you install receive your IP address and the requests you make. A configured addon address or provider account may include credentials; Zeiler sends those only to that addon or provider.</li>
+        <li><strong>Skip information.</strong> Unless disabled, AniSkip, Kitsu, and TheIntroDB receive title identifiers and video duration so Zeiler can find intro, recap, and credits times.</li>
+        <li><strong>Optional addon directories.</strong> If you enable the directory, its configured listing services receive catalog requests. Nothing is fetched from them before you opt in.</li>
+        <li><strong>Desktop updates.</strong> Windows, macOS, and Linux builds contact GitHub to check for and download signed updates. Android updates come from Google Play or an APK you install yourself.</li>
+      </ul>
+      <p>These third parties can see your IP address and the information in the requests you initiate. Their own privacy policies apply. Zeiler does not control their retention practices.</p>
+
+      <h2>Optional Stremio account sync</h2>
+      <p>Account sync is off until you sign in. If you use a link code, you confirm it at link.stremio.com. If you choose email and password sign-in, those credentials go directly to Stremio’s API and are not saved by Zeiler. When sync is enabled, Stremio receives your library titles, progress, watched marks, and—only if you enable addon sync—your addon addresses, including credentials embedded in configured addresses. Signing out stops further sync and forgets the saved session key; information already sent to Stremio remains subject to Stremio’s policies.</p>
+
+      <h2>BitTorrent streaming</h2>
+      <p>If you choose a torrent stream, Zeiler’s built-in BitTorrent engine connects to trackers, the distributed hash table (DHT), and other peers. Your IP address and the torrent’s info hash are visible to those participants, as is normal for BitTorrent. Torrent data is stored in the app’s cache according to your settings and can be removed when playback stops. Do not use this feature for content you are not authorized to access or share.</p>
+
+      <h2>Playback and subtitles</h2>
+      <p>Streams play directly between your device and the source you selected. Subtitle addons receive title and file-matching information. Subtitle files you download are normalized and kept temporarily in the app’s private cache. Zeiler does not send your media to us.</p>
+
+      <h2>Your choices and deletion</h2>
+      <p>You can disable built-in addons, skip lookups, account sync, and optional directories in Settings. Remove addons or IPTV sources to stop using them. Signing out forgets your Stremio session key. Uninstalling Zeiler or clearing its app data removes its local settings and Android Keystore-protected secrets. For data held by a third party, contact that service directly.</p>
+
+      <h2>Children</h2>
+      <p>Zeiler is not directed at children. Adult catalog content is hidden unless an adult user enables it. Parents and guardians should review any addons and IPTV sources they allow on a device.</p>
+
+      <h2>Changes and contact</h2>
+      <p>Updates to this policy will be published with Zeiler’s website and source repository. Questions or reports can be filed at <a href="https://github.com/malhaniah/zeiler/issues">github.com/malhaniah/zeiler/issues</a>. Zeiler is an independent project and is not affiliated with or endorsed by Stremio (Smart Code Ltd).</p>
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap footer-inner">
+        <p><a href="../">Zeiler home</a> · <a href="../download/">All downloads</a></p>
+        <p>Zeiler is free software under the <a href="https://github.com/malhaniah/zeiler/blob/main/LICENSE">GNU GPL v3.0</a>. <a href="https://github.com/malhaniah/zeiler">Source code</a></p>
+      </div>
+    </footer>
+    <!--release:data-->
+  </body>
+</html>
