@@ -31,4 +31,35 @@ platform :android do
       skip_upload_screenshots: false
     )
   end
+
+  desc "Promote the current internal release to closed testing"
+  lane :closed do
+    upload_to_play_store(
+      track: "internal",
+      track_promote_to: "alpha",
+      track_promote_release_status: "draft",
+      changes_not_sent_for_review: false,
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      skip_upload_changelogs: true
+    )
+  end
+
+  desc "Promote the current internal release to Play production"
+  lane :production do
+    upload_to_play_store(
+      track: "internal",
+      track_promote_to: "production",
+      changes_not_sent_for_review: false,
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      skip_upload_changelogs: true
+    )
+  end
 end

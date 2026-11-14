@@ -31,6 +31,22 @@ Upload the signed release and store listing to internal testing
 
 Update promotional images without replacing the uploaded AAB
 
+### android closed
+
+```sh
+[bundle exec] fastlane android closed
+```
+
+Promote the current internal release to closed testing
+
+### android production
+
+```sh
+[bundle exec] fastlane android production
+```
+
+Promote the current internal release to Play production
+
 ----
 
 This README.md is auto-generated and will be re-generated every time [_fastlane_](https://fastlane.tools) is run.
