@@ -24,6 +24,7 @@ export function AddonDetailView({ listingKey }: { listingKey: string }) {
   // re-read after an install so the action shows Installed
   useEffect(() => {
     let cancelled = false;
+    setError(null);
     marketplaceDetail(listingKey)
       .then((d) => !cancelled && setDetail(d))
       .catch((e) => !cancelled && setError(errorMessage(e)));

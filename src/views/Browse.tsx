@@ -257,7 +257,20 @@ function BrowseGrid({
   return (
     <>
       {error && items.length === 0 && (
-        <EmptyState title="Could not load this catalog">{error}</EmptyState>
+        <EmptyState title="Could not load this catalog">
+          {error}
+          <div className="mt-5">
+            <button
+              onClick={() => {
+                setError(null);
+                setExhausted(false);
+              }}
+              className="h-10 rounded-full border border-edge px-5 text-[13px] font-medium text-ink-muted hover:text-ink"
+            >
+              Try again
+            </button>
+          </div>
+        </EmptyState>
       )}
       {!error && exhausted && items.length === 0 && (
         <EmptyState title="Nothing here">
@@ -274,7 +287,21 @@ function BrowseGrid({
           <Spinner />
         </div>
       )}
-      {exhausted && items.length > 0 && (
+      {error && items.length > 0 && (
+        <div className="flex flex-col items-center gap-3 text-center text-[13px] text-ink-muted" role="alert">
+          <p>Could not load more titles: {error}</p>
+          <button
+            onClick={() => {
+              setError(null);
+              setExhausted(false);
+            }}
+            className="h-10 rounded-full border border-edge px-5 font-medium hover:text-ink"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+      {!error && exhausted && items.length > 0 && (
         <p className="text-center text-[11.5px] text-ink-subtle">
           That's everything {catalog.addon.manifest.name} has here.
         </p>

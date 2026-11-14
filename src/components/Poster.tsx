@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 /** Deterministic 3-layer oklch gradient for items without artwork (Harbor's recipe). */
 export function fallbackGradient(seed: string): string {
@@ -37,6 +37,7 @@ export function Poster({
 }) {
   const [broken, setBroken] = useState(false);
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  useEffect(() => setBroken(false), [src]);
   const showImage = src && !broken;
   return (
     <div className={`relative overflow-hidden rounded-lg ${ASPECTS[ratio]} ${className}`}>

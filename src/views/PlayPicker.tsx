@@ -74,6 +74,7 @@ export function PlayPickerView({
     : (video?.id ?? meta.behaviorHints.defaultVideoId ?? meta.id);
 
   const [groups, setGroups] = useState<AddonStreams[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string | null>(null); // transportUrl or null = all
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [failed, setFailed] = useState<Set<string>>(new Set());
@@ -100,8 +101,17 @@ export function PlayPickerView({
   useEffect(() => {
     let cancelled = false;
     setGroups(null);
+    setLoadError(null);
     setFailed(new Set());
-    streamsGet(meta.type, videoId, target, PICKER_MAX_AGE_SECS).then((g) => !cancelled && setGroups(g));
+    streamsGet(meta.type, videoId, target, PICKER_MAX_AGE_SECS)
+      .then((g) => !cancelled && setGroups(g))
+      .catch((e) => {
+        if (cancelled) return;
+        setLoadError(errorMessage(e));
+        setGroups([]);
+        autoStarted.current = false;
+        setAuto("off");
+      });
     return () => {
       cancelled = true;
     };
@@ -302,14 +312,17 @@ export function PlayPickerView({
         )}
 
         {/* empty */}
-        {listing && settled && rows.length === 0 && hidden === 0 && (
+        {listing && settled && loadError && (
+          <EmptyState title="Could not load streams">{loadError}</EmptyState>
+        )}
+        {listing && settled && !loadError && rows.length === 0 && hidden === 0 && (
           <EmptyState title={`${groups?.length ?? 0} addons answered — nothing playable`}>
             No installed addon returned a stream for{" "}
             <span className="font-mono text-[12px]">{videoId}</span>. Install a stream addon
             that covers this content.
           </EmptyState>
         )}
-        {listing && settled && rows.length === 0 && hidden > 0 && (
+        {listing && settled && !loadError && rows.length === 0 && hidden > 0 && (
           <EmptyState title="Nothing for this episode">
             The addons sent {hidden} {hidden === 1 ? "stream" : "streams"} for other episodes, or
             packs that don't say which file is this one. Zeiler leaves those out.
@@ -477,8 +490,19 @@ function AddonFilter({
     const onDown = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      setOpen(false);
+      ref.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    };
     window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey, true);
+    };
   }, [open]);
 
   const selected = value ? options.find(([url]) => url === value) : null;
@@ -564,7 +588,8 @@ function StreamRow({
   onPlayExternal: () => void;
 }) {
   const { stream, addonName } = row;
-  const unsupported = !playable(stream) && !stream.externalUrl && !stream.ytId;
+  const external = !!stream.externalUrl && /^https?:\/\//i.test(stream.externalUrl);
+  const unsupported = !playable(stream) && !external && !stream.ytId;
   const kindLabel = stream.url
     ? "direct"
     : stream.infoHash

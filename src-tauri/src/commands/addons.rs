@@ -242,12 +242,9 @@ pub async fn addon_add(
             "The active profile changed while this addon was loading. Install it again in this profile.".into(),
         ));
     }
-    install_into(
-        &mut *state.addons.write().await,
-        descriptor.clone(),
-        replace.as_deref(),
-    )?;
-    state.persist_addons().await?;
+    state
+        .update_addons(|addons| install_into(addons, descriptor.clone(), replace.as_deref()))
+        .await?;
     updates.forget(&[descriptor.transport_url.as_str()]);
     if let Some(old) = &replace {
         updates.forget(&[old.as_str()]);
@@ -273,15 +270,16 @@ pub async fn addon_remove(
     transport_url: String,
 ) -> Result<(), IpcError> {
     let _profile = state.profile_op.lock().await;
-    {
-        let mut addons = state.addons.write().await;
-        let before = addons.len();
-        addons.retain(|d| d.transport_url.as_str() != transport_url);
-        if addons.len() == before {
-            return Err(IpcError::NotFound("addon is not installed".into()));
-        }
-    }
-    state.persist_addons().await?;
+    state
+        .update_addons(|addons| {
+            let before = addons.len();
+            addons.retain(|d| d.transport_url.as_str() != transport_url);
+            if addons.len() == before {
+                return Err(IpcError::NotFound("addon is not installed".into()));
+            }
+            Ok(())
+        })
+        .await?;
     updates.forget(&[transport_url.as_str()]);
     commands::account::addons_changed(&app, vec![AddonOp::Remove(transport_url)]).await;
     Ok(())
@@ -359,11 +357,12 @@ pub async fn addon_reorder(
     order: Vec<String>,
 ) -> Result<Vec<Descriptor>, IpcError> {
     let _profile = state.profile_op.lock().await;
-    {
-        let mut addons = state.addons.write().await;
-        *addons = reordered(&addons, &order)?;
-    }
-    state.persist_addons().await?;
+    state
+        .update_addons(|addons| {
+            *addons = reordered(addons, &order)?;
+            Ok(())
+        })
+        .await?;
     commands::account::addons_changed(&app, vec![AddonOp::Reorder(order)]).await;
     Ok(state.effective_addons().await)
 }
@@ -547,12 +546,9 @@ pub async fn addon_refresh(
         ));
     }
     // in place, and NotFound if it was removed meanwhile (never added back)
-    install_into(
-        &mut *state.addons.write().await,
-        fresh.clone(),
-        Some(transport_url.as_str()),
-    )?;
-    state.persist_addons().await?;
+    state
+        .update_addons(|addons| install_into(addons, fresh.clone(), Some(transport_url.as_str())))
+        .await?;
     cache.forget(&[transport_url.as_str()]);
     commands::account::addons_changed(
         &app,

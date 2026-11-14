@@ -110,6 +110,7 @@ function Slide({
   const art = meta.background ?? meta.poster;
   return (
     <div
+      inert={!active}
       className={`absolute transition-opacity duration-700 ease-[cubic-bezier(0.32,0.72,0.24,1)] ${
         variant === "card" ? "inset-[2px] rounded-[26px] overflow-hidden" : "inset-0"
       } ${active ? "opacity-100" : "pointer-events-none opacity-0"}`}

@@ -2,36 +2,65 @@ import { Lock, Settings2 } from "lucide-react";
 import { useState } from "react";
 import { WindowControls } from "../../chrome/WindowControls";
 import { ErrorNote } from "../../components/ui";
-import { errorMessage, profileSelect } from "../../lib/ipc";
+import { errorMessage } from "../../lib/ipc";
 import { useProfiles } from "../../lib/profiles";
 import type { ProfileView } from "../../lib/types";
+import { SECONDARY_BUTTON } from "../addons/common";
 import { PinEntry } from "./PinEntry";
 import { ProfileAvatar } from "./ProfileAvatar";
 
 /** "Who's watching?": shown at launch when there is more than one profile or the
  * active one has a PIN, and from the sidebar's profile menu. */
 export function ProfilePicker({ onManage }: { onManage: () => void }) {
-  const { state, picking, setPicking } = useProfiles();
+  const { state, error: loadError, reload, select, picking, setPicking } = useProfiles();
   const [pinFor, setPinFor] = useState<ProfileView | null>(null);
   const [error, setError] = useState<string | null>(null);
-  if (!state) return null;
+  const [busy, setBusy] = useState(false);
+  if (!state) {
+    return (
+      <div className="fixed inset-0 z-[130] flex flex-col items-center justify-center gap-6 bg-canvas px-8">
+        <div data-tauri-drag-region className="absolute inset-x-0 top-0 h-20" />
+        <div className="absolute right-5 top-5">
+          <WindowControls />
+        </div>
+        <ErrorNote message={loadError ?? "Could not read the profiles on this computer."} />
+        <button
+          className={SECONDARY_BUTTON}
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            await reload();
+            setBusy(false);
+          }}
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
   // always shown while the active profile is locked (the shell isn't mounted then)
   if (!picking && state.unlocked) return null;
   // closable only once the active profile may be used
   const canClose = state.unlocked;
 
   async function choose(profile: ProfileView, pin?: string) {
+    if (busy) return;
+    setBusy(true);
     setError(null);
-    await profileSelect(profile.id, pin);
-    setPinFor(null);
-    setPicking(false);
+    try {
+      await select(profile.id, pin);
+      setPinFor(null);
+      setPicking(false);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
     <div
       className="fixed inset-0 z-[130] flex flex-col items-center justify-center gap-10 bg-canvas/95 px-8 backdrop-blur-md"
       onKeyDown={(e) => {
-        if (e.key === "Escape" && canClose) setPicking(false);
+        if (e.key === "Escape" && canClose && !busy) setPicking(false);
       }}
     >
       {/* over the shell's title bar, or the only screen at launch (a PIN profile) */}
@@ -46,12 +75,13 @@ export function ProfilePicker({ onManage }: { onManage: () => void }) {
         {state.profiles.map((profile) => (
           <button
             key={profile.id}
+            disabled={busy}
             onClick={() => {
               const needsPin = profile.locked && !(profile.active && state.unlocked);
               if (needsPin) setPinFor(profile);
               else choose(profile).catch((e) => setError(errorMessage(e)));
             }}
-            className="group flex w-32 flex-col items-center gap-3 rounded-2xl p-3 transition-colors hover:bg-elevated/60 focus-visible:bg-elevated/60"
+            className="group flex w-32 flex-col items-center gap-3 rounded-2xl p-3 transition-colors hover:bg-elevated/60 focus-visible:bg-elevated/60 disabled:opacity-50"
           >
             <ProfileAvatar profile={profile} size={96} />
             <span className="flex max-w-full items-center gap-1.5 text-[14.5px] font-medium text-ink-muted group-hover:text-ink">
@@ -73,7 +103,7 @@ export function ProfilePicker({ onManage }: { onManage: () => void }) {
             setPicking(false);
             onManage();
           }}
-          disabled={!canClose}
+          disabled={!canClose || busy}
           title={canClose ? undefined : "Choose a profile first"}
           className="flex h-10 items-center gap-2 rounded-xl border border-edge px-4 text-[13px] font-medium text-ink-muted hover:text-ink disabled:opacity-40"
         >

@@ -1,7 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ClipboardPaste, ExternalLink, TriangleAlert } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ErrorNote, Modal, Spinner } from "../../components/ui";
 import {
   STREMIO_LINK,
@@ -78,15 +78,20 @@ function InstallDialog({ request }: { request: InstallRequest }) {
   const [replace, setReplace] = useState<string | null>(request.replace ?? null);
   const [p2pOk, setP2pOk] = useState(false);
   const [installing, setInstalling] = useState(false);
+  const installingRef = useRef(false);
+  const previewRequestRef = useRef(0);
+  const mountedRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   // the link came back from the addon's setup page: it is configured, not the default
   const [configured, setConfigured] = useState(false);
 
   async function preview(url: string, listingKey?: string) {
+    const id = ++previewRequestRef.current;
     setPhase({ kind: "loading" });
     setError(null);
     try {
       const result = await addonPreview(url, listingKey);
+      if (id !== previewRequestRef.current) return;
       const hints = result.descriptor.manifest.behaviorHints;
       setSetup((s) => ({
         configureUrl: result.configureUrl ?? s.configureUrl,
@@ -105,16 +110,33 @@ function InstallDialog({ request }: { request: InstallRequest }) {
       setP2pOk(false);
       setPhase({ kind: "preview", preview: result });
     } catch (e) {
-      setPhase({ kind: "failed", message: errorMessage(e) });
+      if (id === previewRequestRef.current) {
+        setPhase({ kind: "failed", message: errorMessage(e) });
+      }
     }
   }
 
   useEffect(() => {
+    mountedRef.current = true;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (!installingRef.current) closeInstall();
+    };
+    window.addEventListener("keydown", onKey, true);
     // once per request: the component is keyed by it
     if (request.url) void preview(request.url, request.listingKey);
+    return () => {
+      mountedRef.current = false;
+      previewRequestRef.current += 1;
+      window.removeEventListener("keydown", onKey, true);
+    };
   }, []);
 
   async function install(p: InstallPreview) {
+    if (installingRef.current) return;
+    installingRef.current = true;
     setInstalling(true);
     setError(null);
     try {
@@ -123,9 +145,10 @@ function InstallDialog({ request }: { request: InstallRequest }) {
       await reload();
       closeInstall();
     } catch (e) {
-      setError(errorMessage(e));
+      if (mountedRef.current) setError(errorMessage(e));
     } finally {
-      setInstalling(false);
+      installingRef.current = false;
+      if (mountedRef.current) setInstalling(false);
     }
   }
 
@@ -137,53 +160,55 @@ function InstallDialog({ request }: { request: InstallRequest }) {
         : "Install this addon?";
 
   return (
-    <Modal title={title} onClose={() => !installing && closeInstall()} wide>
-      {phase.kind === "loading" && (
-        <div className="py-6">
-          <Spinner label="Fetching the addon's manifest…" />
-        </div>
-      )}
-
-      {phase.kind === "failed" && (
-        <div className="flex flex-col gap-4">
-          <ErrorNote message={phase.message} />
-          <div className="flex justify-end">
-            <button className={SECONDARY_BUTTON} onClick={closeInstall}>
-              Close
-            </button>
+    <div role="dialog" aria-modal="true" aria-label={title}>
+      <Modal title={title} onClose={() => !installingRef.current && closeInstall()} wide>
+        {phase.kind === "loading" && (
+          <div className="py-6">
+            <Spinner label="Fetching the addon's manifest…" />
           </div>
-        </div>
-      )}
+        )}
 
-      {phase.kind === "setup" && (
-        <SetupStep
-          configureUrl={setup.configureUrl}
-          pasted={pasted}
-          setPasted={setPasted}
-          onSubmit={(url) => {
-            setConfigured(true);
-            void preview(url);
-          }}
-          onCancel={closeInstall}
-        />
-      )}
+        {phase.kind === "failed" && (
+          <div className="flex flex-col gap-4">
+            <ErrorNote message={phase.message} />
+            <div className="flex justify-end">
+              <button className={SECONDARY_BUTTON} onClick={closeInstall}>
+                Close
+              </button>
+            </div>
+          </div>
+        )}
 
-      {phase.kind === "preview" && (
-        <PreviewStep
-          request={request}
-          configured={configured}
-          preview={phase.preview}
-          replace={replace}
-          setReplace={setReplace}
-          p2pOk={p2pOk}
-          setP2pOk={setP2pOk}
-          installing={installing}
-          error={error}
-          onConfigure={() => setPhase({ kind: "setup" })}
-          onInstall={() => void install(phase.preview)}
-        />
-      )}
-    </Modal>
+        {phase.kind === "setup" && (
+          <SetupStep
+            configureUrl={setup.configureUrl}
+            pasted={pasted}
+            setPasted={setPasted}
+            onSubmit={(url) => {
+              setConfigured(true);
+              void preview(url);
+            }}
+            onCancel={closeInstall}
+          />
+        )}
+
+        {phase.kind === "preview" && (
+          <PreviewStep
+            request={request}
+            configured={configured}
+            preview={phase.preview}
+            replace={replace}
+            setReplace={setReplace}
+            p2pOk={p2pOk}
+            setP2pOk={setP2pOk}
+            installing={installing}
+            error={error}
+            onConfigure={() => setPhase({ kind: "setup" })}
+            onInstall={() => void install(phase.preview)}
+          />
+        )}
+      </Modal>
+    </div>
   );
 }
 

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CatalogRows } from "../components/CatalogRows";
 import { GenreTiles } from "../components/GenreTiles";
 import { Poster, fallbackGradient } from "../components/Poster";
-import { EmptyState } from "../components/ui";
+import { EmptyState, Spinner } from "../components/ui";
 import { catalogTypes, looksAnime, typeLabel } from "../lib/catalogs";
 import { roomCatalogs } from "../lib/rooms";
 import { type RowState, leadRow, useCatalogRows } from "../lib/rows";
@@ -12,7 +12,7 @@ import { useView } from "../lib/view";
 import type { MetaPreview } from "../lib/types";
 
 export function DiscoverView() {
-  const { addons } = useAddons();
+  const { addons, loaded } = useAddons();
   const { settings } = useSettings();
   const { openMeta, openBrowse, setView } = useView();
   const hideAnime = settings?.hideAnime ?? false;
@@ -23,6 +23,14 @@ export function DiscoverView() {
     [addons, hideAnime, showAdult, hideLiveTv],
   );
   const { rows, loadMore, request, version } = useCatalogRows(catalogs);
+
+  if (!loaded) {
+    return (
+      <main className="flex-1 overflow-y-auto px-12 pt-32">
+        <Spinner label="Loading…" />
+      </main>
+    );
+  }
 
   if (catalogs.length === 0) {
     return (
@@ -64,10 +72,10 @@ export function DiscoverView() {
   return (
     <main className="flex-1 overflow-y-auto px-12 pb-20 pt-20">
       <div className="flex flex-col gap-14">
-        <FeaturedBanner items={featured} onOpen={(m) => openMeta(m)} />
+        {(!first || featured.length > 0) && <FeaturedBanner items={featured} onOpen={openMeta} />}
         <CatalogRows refs={[lead]} {...rowProps} />
         {types.map((type) => (
-          <GenreTiles key={type} type={type} />
+          <GenreTiles key={type} type={type} refs={catalogs} />
         ))}
         <div className="flex justify-center">
           <button
@@ -101,6 +109,10 @@ function FeaturedBanner({
   const hovered = useRef(false);
 
   useEffect(() => {
+    setActive((current) => Math.max(0, Math.min(current, items.length - 1)));
+  }, [items.length]);
+
+  useEffect(() => {
     if (items.length < 2 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const timer = setInterval(() => {
       if (!hovered.current && !document.hidden) setActive((a) => (a + 1) % items.length);
@@ -117,7 +129,8 @@ function FeaturedBanner({
     );
   }
 
-  const current = items[Math.min(active, items.length - 1)];
+  const safeActive = Math.max(0, Math.min(active, items.length - 1));
+  const current = items[safeActive];
 
   return (
     <section className="flex flex-col gap-3">
@@ -126,10 +139,22 @@ function FeaturedBanner({
       </h2>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div
+          role="button"
+          tabIndex={0}
+          aria-label={`Open ${current.name}`}
           className="group relative block h-full min-h-[420px] w-full cursor-pointer overflow-hidden rounded-2xl border border-edge-soft bg-canvas transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0.24,1)] hover:-translate-y-1"
           onMouseEnter={() => (hovered.current = true)}
           onMouseLeave={() => (hovered.current = false)}
+          onFocusCapture={() => (hovered.current = true)}
+          onBlurCapture={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) hovered.current = false;
+          }}
           onClick={() => onOpen(current)}
+          onKeyDown={(e) => {
+            if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return;
+            e.preventDefault();
+            onOpen(current);
+          }}
         >
           {items.map((meta, i) => {
             const art = meta.background ?? meta.poster;
@@ -137,7 +162,7 @@ function FeaturedBanner({
               <div
                 key={meta.id}
                 className={`absolute inset-[2px] overflow-hidden rounded-[14px] transition-opacity duration-700 ${
-                  i === active ? "opacity-100" : "opacity-0"
+                  i === safeActive ? "opacity-100" : "pointer-events-none opacity-0"
                 }`}
               >
                 {art ? (
@@ -168,8 +193,8 @@ function FeaturedBanner({
                 .join(" · ")}
             </div>
           </div>
-          <NavCircle side="left" onClick={() => setActive((active - 1 + items.length) % items.length)} />
-          <NavCircle side="right" onClick={() => setActive((active + 1) % items.length)} />
+          <NavCircle side="left" onClick={() => setActive((safeActive - 1 + items.length) % items.length)} />
+          <NavCircle side="right" onClick={() => setActive((safeActive + 1) % items.length)} />
         </div>
 
         <aside className="hidden flex-col gap-3 self-start rounded-2xl border border-edge-soft bg-elevated/35 p-4 xl:flex">
@@ -178,16 +203,17 @@ function FeaturedBanner({
               {current.name}
             </span>
             <span className="shrink-0 text-[12px] uppercase tracking-[0.16em] text-ink-subtle">
-              {String(active + 1).padStart(2, "0")} / {String(items.length).padStart(2, "0")}
+              {String(safeActive + 1).padStart(2, "0")} / {String(items.length).padStart(2, "0")}
             </span>
           </div>
           <div className="grid grid-cols-2 gap-2">
             {items
-              .filter((_, i) => i !== active)
+              .filter((_, i) => i !== safeActive)
               .slice(0, 4)
               .map((meta) => (
                 <button
                   key={meta.id}
+                  aria-label={`Show ${meta.name}`}
                   onClick={() => setActive(items.indexOf(meta))}
                   className="group/still overflow-hidden rounded-md border border-edge-soft transition-colors hover:border-ink"
                 >
@@ -218,9 +244,10 @@ function FeaturedBanner({
             <button
               key={i}
               aria-label={`Featured ${i + 1}`}
+              aria-pressed={i === safeActive}
               onClick={() => setActive(i)}
               className={`h-1.5 rounded-full transition-all duration-300 ${
-                i === active ? "w-7 bg-ink" : "w-1.5 bg-ink-subtle/40"
+                i === safeActive ? "w-7 bg-ink" : "w-1.5 bg-ink-subtle/40"
               }`}
             />
           ))}

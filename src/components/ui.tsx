@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 export function Spinner({ label }: { label?: string }) {
   return (
@@ -63,20 +63,72 @@ export function Modal({
   children: ReactNode;
   wide?: boolean;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+
+  useEffect(() => {
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.contains(document.activeElement)) {
+      const first = dialog.querySelector<HTMLElement>(
+        "button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex='-1'])",
+      );
+      (first ?? dialog)?.focus();
+    }
+    return () => {
+      if (previous?.isConnected) previous.focus();
+    };
+  }, []);
+
   return (
     <div
       className="animate-backdrop-in fixed inset-0 z-[140] flex items-center justify-center bg-black/65 p-6 backdrop-blur-sm"
       onClick={onClose}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          onClose();
+          return;
+        }
+        if (e.key !== "Tab") return;
+        const dialog = dialogRef.current;
+        if (!dialog) return;
+        const focusable = Array.from(
+          dialog.querySelectorAll<HTMLElement>(
+            "button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex='-1'])",
+          ),
+        ).filter((element) => element.tabIndex >= 0 && element.getClientRects().length > 0);
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (!first || !last) {
+          e.preventDefault();
+          dialog.focus();
+        } else if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
         className={`animate-modal-in max-h-[85vh] w-full overflow-y-auto rounded-[24px] border border-edge-soft bg-elevated/95 px-7 py-7 shadow-[0_30px_80px_-25px_rgba(0,0,0,0.85)] ${
           wide ? "max-w-xl" : "max-w-[420px]"
         }`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-[19px] font-medium tracking-tight">{title}</h2>
+          <h2 id={titleId} className="text-[19px] font-medium tracking-tight">{title}</h2>
           <button
+            type="button"
+            aria-label={`Close ${title}`}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted hover:bg-raised hover:text-ink"
             onClick={onClose}
           >
@@ -141,16 +193,11 @@ export function SectionCard({
   );
 }
 
-export function Toggle({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }) {
+function ToggleVisual({ on }: { on: boolean }) {
   return (
     <span
-      role="switch"
-      aria-checked={on}
-      onClick={(e) => {
-        e.stopPropagation();
-        onChange(!on);
-      }}
-      className={`relative inline-block h-6 w-10 shrink-0 cursor-pointer rounded-full transition-colors ${
+      aria-hidden="true"
+      className={`relative inline-block h-6 w-10 shrink-0 rounded-full transition-colors ${
         on ? "bg-ink" : "bg-edge"
       }`}
     >
@@ -160,6 +207,20 @@ export function Toggle({ on, onChange }: { on: boolean; onChange: (on: boolean) 
         }`}
       />
     </span>
+  );
+}
+
+export function Toggle({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={() => onChange(!on)}
+      className="shrink-0 cursor-pointer rounded-full"
+    >
+      <ToggleVisual on={on} />
+    </button>
   );
 }
 
@@ -179,6 +240,9 @@ export function ToggleRow({
   const locked = !!lockReason;
   return (
     <button
+      type="button"
+      role="switch"
+      aria-checked={on && !locked}
       disabled={locked}
       onClick={() => onChange(!on)}
       className={`flex items-center justify-between gap-4 rounded-xl border border-edge-soft bg-canvas/40 px-4 py-3 text-left transition-colors hover:border-edge ${
@@ -193,7 +257,7 @@ export function ToggleRow({
           sub && <span className="text-[12.5px] leading-snug text-ink-muted">{sub}</span>
         )}
       </span>
-      <Toggle on={on && !locked} onChange={onChange} />
+      <ToggleVisual on={on && !locked} />
     </button>
   );
 }

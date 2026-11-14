@@ -1,7 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ExternalLink, RefreshCw, TriangleAlert } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ErrorNote, Modal, SectionCard, Spinner, ToggleRow } from "../../components/ui";
 import {
   ACCOUNT_CHANGED,
@@ -42,24 +42,52 @@ export function AccountSettings() {
   const [syncing, setSyncing] = useState(false);
   const [confirmOut, setConfirmOut] = useState(false);
   const active = profiles?.profiles.find((p) => p.id === profiles.activeId);
+  const description = `Optional. Sign this profile${active ? ` (${active.name})` : ""} in to a Stremio account to keep its library, and if you like its addons, the same as in Stremio's own apps.`;
+  const request = useRef(0);
 
-  useEffect(() => {
-    accountStatus()
-      .then(setStatus)
-      .catch((e) => setError(errorMessage(e)));
-    const unlisten = listen<AccountStatus>(ACCOUNT_CHANGED, (e) => setStatus(e.payload));
-    return () => {
-      void unlisten.then((off) => off());
-    };
+  const load = useCallback(async () => {
+    const mine = ++request.current;
+    setError(null);
+    try {
+      const next = await accountStatus();
+      if (mine === request.current) setStatus(next);
+    } catch (e) {
+      if (mine === request.current) setError(errorMessage(e));
+    }
   }, []);
 
-  if (!status) return <Spinner label="Loading…" />;
+  useEffect(() => {
+    void load();
+    const unlisten = listen<AccountStatus>(ACCOUNT_CHANGED, (e) => {
+      request.current++;
+      setStatus(e.payload);
+      setError(null);
+    });
+    return () => {
+      request.current++;
+      void unlisten.then((off) => off());
+    };
+  }, [load]);
+
+  if (!status) {
+    return (
+      <SectionCard title="Stremio account" description={description}>
+        {error ? (
+          <div className="flex flex-col items-start gap-3">
+            <ErrorNote message={error} />
+            <button className={SECONDARY_BUTTON} onClick={() => void load()}>
+              Try again
+            </button>
+          </div>
+        ) : (
+          <Spinner label="Loading…" />
+        )}
+      </SectionCard>
+    );
+  }
 
   return (
-    <SectionCard
-      title="Stremio account"
-      description={`Optional. Sign this profile${active ? ` (${active.name})` : ""} in to a Stremio account to keep its library, and if you like its addons, the same as in Stremio's own apps.`}
-    >
+    <SectionCard title="Stremio account" description={description}>
       {!status.signedIn ? (
         <div className="flex flex-col gap-3">
           {status.lastError && <ErrorNote message={status.lastError} />}
@@ -265,22 +293,33 @@ function LinkSignIn({
 }) {
   const [code, setCode] = useState<LinkCode | null>(null);
   const [expired, setExpired] = useState(false);
+  const [starting, setStarting] = useState(true);
+  const startRequest = useRef(0);
   const rememberRef = useRef(remember);
   rememberRef.current = remember;
 
   async function start() {
+    const mine = ++startRequest.current;
+    setStarting(true);
     onError(null);
-    setExpired(false);
     try {
-      setCode(await accountLinkStart());
+      const next = await accountLinkStart();
+      if (mine !== startRequest.current) return;
+      setCode(next);
+      setExpired(false);
     } catch (e) {
-      onError(errorMessage(e));
+      if (mine === startRequest.current) onError(errorMessage(e));
+    } finally {
+      if (mine === startRequest.current) setStarting(false);
     }
   }
 
   useEffect(() => {
     void start();
     // one code per open; polling below follows it
+    return () => {
+      startRequest.current++;
+    };
   }, []);
 
   // the callbacks change identity on every render of the page (an account event
@@ -308,14 +347,13 @@ function LinkSignIn({
           callbacks.current.onClose();
           return;
         }
-        callbacks.current.onError(null);
+        if (!stopped) callbacks.current.onError(null);
       } catch (e) {
+        if (stopped) return;
         // a network hiccup: keep waiting (the code is still good); anything else ends it
         if (errorKind(e) !== "network") {
-          if (!stopped) {
-            callbacks.current.onError(errorMessage(e));
-            setExpired(true);
-          }
+          callbacks.current.onError(errorMessage(e));
+          setExpired(true);
           return;
         }
         callbacks.current.onError(`${errorMessage(e)} Still trying…`);
@@ -329,7 +367,15 @@ function LinkSignIn({
     };
   }, [code]);
 
-  if (!code) return <Spinner label="Getting a sign-in code…" />;
+  if (!code) {
+    return starting ? (
+      <Spinner label="Getting a sign-in code…" />
+    ) : (
+      <button className={PRIMARY_BUTTON} onClick={() => void start()}>
+        Try again
+      </button>
+    );
+  }
   return (
     <div className="flex flex-col items-center gap-4 text-center">
       <p className="text-[13.5px] leading-relaxed text-ink-muted">
@@ -339,8 +385,8 @@ function LinkSignIn({
       <div className="font-mono text-[32px] font-semibold tracking-[0.3em] text-ink">{code.code}</div>
       {code.qrcode && <img src={code.qrcode} alt="" className="h-36 w-36 rounded-xl bg-white p-2" />}
       {expired ? (
-        <button className={PRIMARY_BUTTON} onClick={() => void start()}>
-          Get a new code
+        <button className={PRIMARY_BUTTON} disabled={starting} onClick={() => void start()}>
+          {starting ? "Getting a new code…" : "Get a new code"}
         </button>
       ) : (
         <>
@@ -375,6 +421,7 @@ function PasswordSignIn({
       className="flex flex-col gap-3"
       onSubmit={async (e) => {
         e.preventDefault();
+        if (busy) return;
         setBusy(true);
         onError(null);
         try {

@@ -263,18 +263,23 @@ function AddProfile({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState("");
   const [color, setColor] = useState(COLOR_IDS[(Date.now() / 1000) % COLOR_IDS.length | 0]);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   return (
     <Modal title="Add a profile" onClose={onClose}>
       <form
         className="flex flex-col gap-4"
         onSubmit={async (e) => {
           e.preventDefault();
+          if (busy) return;
+          setBusy(true);
           setError(null);
           try {
             await profileCreate(name, color);
             onClose();
           } catch (err) {
             setError(errorMessage(err));
+          } finally {
+            setBusy(false);
           }
         }}
       >
@@ -311,8 +316,8 @@ function AddProfile({ onClose }: { onClose: () => void }) {
           <button type="button" className={SECONDARY_BUTTON} onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className={PRIMARY_BUTTON} disabled={!name.trim()}>
-            Add profile
+          <button type="submit" className={PRIMARY_BUTTON} disabled={!name.trim() || busy}>
+            {busy ? "Adding…" : "Add profile"}
           </button>
         </div>
       </form>

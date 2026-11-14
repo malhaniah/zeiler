@@ -454,9 +454,13 @@ export function subscribePickerRequests(
   };
 }
 
+let leavingPlayer = false;
+
 /** Leaves the Player screen: back to the previous history entry, or to the app's start
  * when the player is the first entry (e.g. it was reloaded in a fresh window). */
 export function leavePlayer(): void {
+  if (!playerActive() || leavingPlayer) return;
+  leavingPlayer = true;
   if (window.history.length > 1) window.history.back();
   else window.location.hash = "#/";
 }
@@ -467,6 +471,7 @@ const routeListeners = new Set<() => void>();
 // route change before React commits the resulting render (see the scroll snapshot in
 // src/main.tsx).
 window.addEventListener("hashchange", () => {
+  leavingPlayer = false;
   for (const listener of [...routeListeners]) listener();
 });
 

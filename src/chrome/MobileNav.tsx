@@ -51,9 +51,16 @@ export function MobileNav() {
       </nav>
       <dialog
         ref={dialogRef}
+        role="dialog"
         aria-label="More navigation"
         onCancel={(e) => {
           e.preventDefault();
+          setMoreOpen(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key !== "Escape") return;
+          e.preventDefault();
+          e.stopPropagation();
           setMoreOpen(false);
         }}
         onClick={(e) => {

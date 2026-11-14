@@ -34,7 +34,7 @@ export function Topbar() {
   if (top.kind === "picker") return null;
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-[55] h-16 sm:h-20 xl:left-60">
+    <header className="app-topbar fixed left-0 right-0 top-0 z-[55] h-16 sm:h-20 xl:left-60">
       <div
         data-tauri-drag-region
         className="relative z-10 flex h-full items-center gap-2 px-3 sm:gap-3 sm:px-6 lg:px-8"

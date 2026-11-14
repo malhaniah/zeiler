@@ -25,24 +25,57 @@ export function SearchOverlay() {
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<SectionResult[] | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const requestId = useRef(0);
 
   useEffect(() => {
-    if (open) {
-      setTimeout(() => inputRef.current?.focus(), 30);
-    } else {
+    if (!open) {
       setQuery("");
       setResults(null);
+      return;
     }
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const timer = window.setTimeout(() => inputRef.current?.focus(), 30);
+    return () => {
+      window.clearTimeout(timer);
+      if (previous?.isConnected) previous.focus();
+    };
   }, [open]);
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !playerActive()) setOpen(false);
+      if (e.key === "Escape" && !playerActive()) {
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const overlay = overlayRef.current;
+      if (!overlay) return;
+      const focusable = Array.from(
+        overlay.querySelectorAll<HTMLElement>(
+          "button:not(:disabled), input:not(:disabled), a[href], [tabindex]:not([tabindex='-1'])",
+        ),
+      ).filter((el) => el.getClientRects().length > 0);
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first || !last) return;
+      const active = document.activeElement;
+      if (!overlay.contains(active)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      } else if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [open, setOpen]);
 
   // debounce search 450ms
@@ -88,7 +121,13 @@ export function SearchOverlay() {
   if (!open) return null;
 
   return (
-    <div className="animate-fade-in fixed inset-0 z-[200] flex flex-col bg-canvas/95 backdrop-blur-xl">
+    <div
+      ref={overlayRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Search movies and shows"
+      className="animate-fade-in fixed inset-0 z-[200] flex flex-col bg-canvas/95 backdrop-blur-xl"
+    >
       <div className="mx-auto mt-4 flex w-full max-w-3xl items-center gap-2 px-4 sm:mt-16 sm:gap-4 sm:px-8">
         <div className="flex h-12 flex-1 items-center gap-3 rounded-full border border-edge bg-elevated px-4 sm:h-14 sm:gap-4 sm:px-6">
           <Search size={18} className="shrink-0 text-ink-subtle" />
@@ -97,6 +136,7 @@ export function SearchOverlay() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search movies, shows…"
+            aria-label="Search movies and shows"
             className="h-full flex-1 bg-transparent text-[16px] text-ink outline-none placeholder:text-ink-subtle"
           />
           {searching && (

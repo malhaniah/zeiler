@@ -119,6 +119,10 @@ export function useNextEpisode({
     episodeRequest.current++;
     setPendingEpisodeId(null);
     asking.current = null;
+    return () => {
+      episodeRequest.current++;
+      asking.current = null;
+    };
   }, [launch]);
 
   /** The candidate stream for `target` from the addons' answers (or the meta's own):
