@@ -24,6 +24,11 @@ env:
 
     **Sailor is now Zeiler.** Sailor installs update to Zeiler on their own and keep your addons and settings. On Windows the update also removes Sailor. On macOS the app keeps the name `Sailor.app` in Applications: rename it to `Zeiler.app`, or replace it with the new `.dmg`.
 
+    ### 0.3.12 — navigation and reliability
+    - Fixed Back becoming unresponsive after opening featured titles and heroes, including an Android TV top-bar overlap.
+    - Fixed stream, catalog, settings, profile and account loading failures that could leave screens stuck.
+    - Improved player navigation cleanup, dialog keyboard behavior and addon persistence reliability.
+
     ### Android — new in 0.3.11
     Zeiler now supports Android phones and tablets, Android TV, and Google TV. Download the signed universal `.apk` for arm64 and armv7 devices; the `.aab` is the Google Play package. Playback uses native Media3, with touch controls on phones and tablets and D-pad navigation on TV. Account secrets are encrypted with keys held in Android Keystore.
 

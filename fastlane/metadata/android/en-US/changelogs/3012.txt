@@ -1,0 +1,1 @@
+Fixed Back after opening featured titles, Android TV navigation overlap, stuck loading screens, and playback cleanup. Improved dialogs and addon reliability.
