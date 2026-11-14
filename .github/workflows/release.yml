@@ -18,11 +18,16 @@ env:
   # The release's text, and also latest.json's "notes" (tauri-action writes its
   # releaseBody there)
   RELEASE_BODY: |-
-    Zeiler — a free, open-source (GPL-3.0) desktop client for the Stremio addon ecosystem. Zeiler hosts no media, indexes no media, and ships no content addon: add your own stream addons on the Addons page.
+    Zeiler — a free, open-source (GPL-3.0) desktop and Android client for the Stremio addon ecosystem. Zeiler hosts no media, indexes no media, and ships no content addon: add your own stream addons on the Addons page.
 
     **Playback:** on Windows and macOS, videos play right inside Zeiler — nothing else to install (mpv stays optional, for anyone who prefers their own mpv window). On Linux, Zeiler plays videos in an mpv window and gives you full controls on its player screen, so install mpv there. Installed copies update themselves automatically.
 
     **Sailor is now Zeiler.** Sailor installs update to Zeiler on their own and keep your addons and settings. On Windows the update also removes Sailor. On macOS the app keeps the name `Sailor.app` in Applications: rename it to `Zeiler.app`, or replace it with the new `.dmg`.
+
+    ### Android — new in 0.3.11
+    Zeiler now supports Android phones and tablets, Android TV, and Google TV. Download the signed universal `.apk` for arm64 and armv7 devices; the `.aab` is the Google Play package. Playback uses native Media3, with touch controls on phones and tablets and D-pad navigation on TV. Account secrets are encrypted with keys held in Android Keystore.
+
+    **Player fix:** double-clicking or double-tapping subtitle, audio, or stream popup controls no longer unexpectedly toggles fullscreen ([#68](https://github.com/malhaniah/zeiler/issues/68)).
 
     ### Windows
     Download the `*-setup.exe` installer and run it (installs per-user, no admin). Builds are unsigned, so SmartScreen may warn: choose **More info → Run anyway**. Playback is built in. Optional: to play in your own mpv window instead (Settings → Player → External mpv), install mpv with `winget install shinchiro.mpv`.

@@ -1,0 +1,1 @@
+Android phones, tablets, Android TV and Google TV: native Media3 playback, touch and D-pad controls, and Android Keystore-backed secret storage. Fixed player popup double-clicks unexpectedly toggling fullscreen (#68).
