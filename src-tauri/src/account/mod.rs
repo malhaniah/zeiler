@@ -434,9 +434,11 @@ pub async fn pull_addons(
         {
             return Ok(state.addons.read().await.len());
         }
-        *state.addons.write().await = addons;
         state
-            .persist_addons()
+            .update_addons(|current| {
+                *current = addons;
+                Ok(())
+            })
             .await
             .map_err(|e| SyncError::Unexpected(e.to_string()))?;
     }

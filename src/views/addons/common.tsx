@@ -1,5 +1,5 @@
 import { Eye, EyeOff, Star } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AddonLogo } from "../../components/cards";
 import { Badge, Modal } from "../../components/ui";
 import type { Manifest, ManifestResource } from "../../lib/types";
@@ -132,22 +132,35 @@ export function AddonHeading({ manifest, size = 48 }: { manifest: Manifest; size
 
 /** The 18+ confirmation in front of the single adult-content setting. */
 export function AdultGate({ onConfirm, onClose }: { onConfirm: () => void; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      onClose();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [onClose]);
+
   return (
-    <Modal title="Show adult content?" onClose={onClose}>
-      <p className="text-[13.5px] leading-relaxed text-ink-muted">
-        Adult addons stay hidden unless you turn this on. Only continue if you are 18 or older
-        and adult content is legal where you are. Detection is automatic and imperfect, so some
-        listings may be missed or mislabelled. You can turn it off again in Settings → Content.
-      </p>
-      <div className="mt-6 flex justify-end gap-3">
-        <button className={SECONDARY_BUTTON} onClick={onClose}>
-          Cancel
-        </button>
-        <button className={PRIMARY_BUTTON} onClick={onConfirm}>
-          I'm 18 or older
-        </button>
-      </div>
-    </Modal>
+    <div role="dialog" aria-modal="true" aria-label="Show adult content?">
+      <Modal title="Show adult content?" onClose={onClose}>
+        <p className="text-[13.5px] leading-relaxed text-ink-muted">
+          Adult addons stay hidden unless you turn this on. Only continue if you are 18 or older
+          and adult content is legal where you are. Detection is automatic and imperfect, so some
+          listings may be missed or mislabelled. You can turn it off again in Settings → Content.
+        </p>
+        <div className="mt-6 flex justify-end gap-3">
+          <button className={SECONDARY_BUTTON} onClick={onClose}>
+            Cancel
+          </button>
+          <button className={PRIMARY_BUTTON} onClick={onConfirm}>
+            I'm 18 or older
+          </button>
+        </div>
+      </Modal>
+    </div>
   );
 }
 

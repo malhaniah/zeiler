@@ -165,7 +165,9 @@ body {
 
 button:focus-visible,
 a:focus-visible,
+input:focus-visible,
 select:focus-visible,
+textarea:focus-visible,
 [tabindex]:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 4px;
@@ -257,6 +259,9 @@ dialog::backdrop {
 
 .android-tv .app-sidebar {
   display: flex;
+}
+.android-tv .app-topbar {
+  left: 15rem;
 }
 .android-tv .app-mobile-nav {
   display: none;

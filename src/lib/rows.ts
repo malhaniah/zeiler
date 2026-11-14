@@ -229,22 +229,26 @@ export function useCatalogRows(
           return state ? new Map(prev).set(key, change(state)) : prev;
         });
       };
-      loadPage(row.ref, row.offset, () => !current(key, token))
-        .then((response) =>
-          update((state) => {
-            const seen = new Set(state.items.map((m) => m.id));
-            const fresh = response.metas.filter((m) => !seen.has(m.id));
-            const items = [...state.items, ...fresh];
-            const offset = state.offset + response.fetched;
-            return {
-              ...state,
-              items,
-              offset,
-              exhausted:
-                pageEnds(state.ref, response, fresh.length, offset) || items.length >= ROW_CAP,
-            };
-          }),
-        )
+      const more = async (): Promise<RowState> => {
+        let state = row;
+        for (;;) {
+          const response = await loadPage(state.ref, state.offset, () => !current(key, token));
+          const seen = new Set(state.items.map((m) => m.id));
+          const fresh = response.metas.filter((m) => !seen.has(m.id));
+          const items = [...state.items, ...fresh];
+          const offset = state.offset + response.fetched;
+          state = {
+            ...state,
+            items,
+            offset,
+            exhausted:
+              pageEnds(state.ref, response, fresh.length, offset) || items.length >= ROW_CAP,
+          };
+          if (fresh.length > 0 || state.exhausted) return state;
+        }
+      };
+      more()
+        .then((state) => update(() => state))
         .catch((e) => {
           if (!(e instanceof StaleRequest)) update((state) => ({ ...state, exhausted: true }));
         })
@@ -267,8 +271,11 @@ export function dedupRows(
   const seen = new Set(reservedIds);
   const result: { key: string; state: RowState; items: MetaPreview[] }[] = [];
   for (const { key, state } of ordered) {
-    const items = state.items.filter((m) => !seen.has(m.id));
-    for (const item of items.slice(0, 20)) seen.add(item.id);
+    const items = state.items.filter((m) => {
+      if (seen.has(m.id)) return false;
+      seen.add(m.id);
+      return true;
+    });
     if (items.length >= 4 || (items.length > 0 && state.items.length < 4)) {
       result.push({ key, state, items });
     }

@@ -232,6 +232,7 @@ function PlayerSession({ launch: launched, launchId }: { launch: PlayerLaunch; l
       const target = e.target;
       if (
         target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
         (target instanceof HTMLInputElement && target.type !== "range" && target.type !== "button")
       ) {
         return;

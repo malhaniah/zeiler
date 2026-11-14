@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ErrorNote, SectionCard, ToggleRow } from "../../components/ui";
 import { deeplinkSetStremio, deeplinkStremioStatus, errorMessage } from "../../lib/ipc";
 import { useSettings } from "../../lib/store";
@@ -10,12 +10,23 @@ export function AddonDirectorySettings() {
   const { settings, save } = useSettings();
   const [link, setLink] = useState<DeepLinkStatus | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
-  const [linkBusy, setLinkBusy] = useState(false);
+  const linkBusyRef = useRef(false);
+  const mountedRef = useRef(false);
 
   useEffect(() => {
+    mountedRef.current = true;
+    let cancelled = false;
     deeplinkStremioStatus()
-      .then(setLink)
-      .catch(() => setLink(null));
+      .then((next) => {
+        if (!cancelled) setLink(next);
+      })
+      .catch(() => {
+        if (!cancelled) setLink(null);
+      });
+    return () => {
+      mountedRef.current = false;
+      cancelled = true;
+    };
   }, []);
 
   if (!settings) return null;
@@ -60,15 +71,16 @@ export function AddonDirectorySettings() {
         lockReason={link && !link.supported ? "Not available on this system yet." : undefined}
         on={settings.stremioDeepLink}
         onChange={async (on) => {
-          if (linkBusy) return;
-          setLinkBusy(true);
+          if (linkBusyRef.current) return;
+          linkBusyRef.current = true;
           setLinkError(null);
           try {
-            setLink(await deeplinkSetStremio(on));
+            const next = await deeplinkSetStremio(on);
+            if (mountedRef.current) setLink(next);
           } catch (e) {
-            setLinkError(errorMessage(e));
+            if (mountedRef.current) setLinkError(errorMessage(e));
           } finally {
-            setLinkBusy(false);
+            linkBusyRef.current = false;
           }
         }}
       />

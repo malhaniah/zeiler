@@ -4,7 +4,7 @@ import zeilerLogo from "../assets/zeiler-logo-white.png";
 /** Production browsers get the installable shell without calling unavailable native APIs. */
 export function WebShell() {
   return (
-    <main className="min-h-full overflow-y-auto bg-canvas text-ink">
+    <main className="h-full overflow-y-auto bg-canvas text-ink">
       <header className="flex h-20 items-center gap-3 px-5 sm:px-10">
         <img src={zeilerLogo} alt="" className="h-10 w-10" />
         <span className="font-brand text-[28px] font-medium tracking-tight">Zeiler</span>

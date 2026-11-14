@@ -33,6 +33,8 @@ export function Row({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
+  const onEndReachedRef = useRef(onEndReached);
+  onEndReachedRef.current = onEndReached;
   const [cellWidth, setCellWidth] = useState(min);
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(false);
@@ -59,17 +61,18 @@ export function Row({
     setCanRight(track.scrollLeft + track.clientWidth < track.scrollWidth - 10);
   }, []);
 
-  useEffect(() => {
-    updateArrows();
-  }, [children.length, cellWidth, updateArrows]);
-
   const onScroll = useCallback(() => {
     updateArrows();
     const track = trackRef.current;
-    if (track && onEndReached) {
-      if (track.scrollWidth - (track.scrollLeft + track.clientWidth) < 800) onEndReached();
+    const onEnd = onEndReachedRef.current;
+    if (track && onEnd) {
+      if (track.scrollWidth - (track.scrollLeft + track.clientWidth) < 800) onEnd();
     }
-  }, [updateArrows, onEndReached]);
+  }, [updateArrows]);
+
+  useEffect(() => {
+    onScroll();
+  }, [children.length, cellWidth, onScroll]);
 
   const scrollBy = (direction: 1 | -1) => {
     const track = trackRef.current;

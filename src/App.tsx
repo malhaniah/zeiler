@@ -88,10 +88,10 @@ function Shell() {
           <RootViewHost view={root} />
         </div>
         {overlays.map((frame, i) => (
-          <OverlayFrame key={`${frame.kind}-${i}`} frame={frame} />
+          <OverlayFrame key={`${frame.kind}-${i}`} frame={frame} active={i === overlays.length - 1} />
         ))}
       </div>
-      <div className="contents" inert={overlays.length > 0}>
+      <div className="contents">
         <Topbar />
       </div>
       <SearchOverlay />
@@ -182,7 +182,7 @@ function isOverlay(frame: Frame): boolean {
 }
 
 
-function OverlayFrame({ frame }: { frame: Frame }) {
+function OverlayFrame({ frame, active }: { frame: Frame; active: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!document.documentElement.classList.contains("android-tv")) return;
@@ -236,5 +236,5 @@ function OverlayFrame({ frame }: { frame: Frame }) {
     }
   })();
 
-  return <div ref={ref} className="contents">{content}</div>;
+  return <div ref={ref} className="contents" inert={!active}>{content}</div>;
 }

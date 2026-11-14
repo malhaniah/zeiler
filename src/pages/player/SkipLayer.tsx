@@ -2,7 +2,7 @@
  * What the player draws for skipping and the next episode, over either screen (the
  * embedded video's chrome or the external-mpv remote): the Skip pill, the Up Next card,
  * and the "Skipped intro · Undo" toast, bottom right above the control bar. Its keys:
- * Enter takes the pill's offer (when no menu is open and no button has the focus), n
+ * Enter takes the pill's offer (when no menu is open and no control has the focus), n
  * plays the next episode and p the previous one (also the media keys).
  *
  * The pill and the card follow Harbor's `skip-pill.tsx` and `skip-pill-container.tsx`
@@ -153,6 +153,7 @@ function useSkipKeys({
       const target = e.target;
       if (
         target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
         (target instanceof HTMLInputElement && target.type !== "range" && target.type !== "button")
       ) {
         return;

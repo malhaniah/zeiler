@@ -26,7 +26,7 @@ export function PinEntry({
         className="flex flex-col gap-4"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (!valid) return;
+          if (!valid || busy) return;
           setBusy(true);
           setError(null);
           try {

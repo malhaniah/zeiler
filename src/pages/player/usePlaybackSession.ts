@@ -484,8 +484,12 @@ export function usePlaybackSession(
       if (!prepared.url) throw new Error("nothing to play: the route carried no url/infoHash");
       request = prepared;
 
-      unlisten = await onPlayerEvent(onEvent);
-      if (cancelled) return;
+      const off = await onPlayerEvent(onEvent);
+      if (cancelled) {
+        off();
+        return;
+      }
+      unlisten = off;
       await start();
     })().catch(fail);
 

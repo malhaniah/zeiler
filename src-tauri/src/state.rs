@@ -466,10 +466,21 @@ impl AppState {
         self.engine.get().cloned()
     }
 
-    pub async fn persist_addons(&self) -> Result<(), IpcError> {
-        let _guard = self.persist_lock.lock().await;
-        let snapshot = self.addons.read().await.clone();
-        write_json(&self.profile_dir().join("addons.json"), &snapshot).await
+    /// Compute, persist and only then publish an addon change. The caller holds
+    /// `profile_op`, so the write cannot be redirected by a profile switch.
+    pub async fn update_addons<R>(
+        &self,
+        next: impl FnOnce(&mut Vec<Descriptor>) -> Result<R, IpcError>,
+    ) -> Result<R, IpcError> {
+        let mut current = self.addons.write().await;
+        let mut updated = current.clone();
+        let result = next(&mut updated)?;
+        {
+            let _guard = self.persist_lock.lock().await;
+            write_json(&self.profile_dir().join("addons.json"), &updated).await?;
+        }
+        *current = updated;
+        Ok(result)
     }
 
     /// Compute the next settings from the current ones, persist them, and only then
@@ -882,6 +893,44 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn failed_addon_write_leaves_memory_and_disk_unchanged() {
+        let dir = crate::persist::tests::temp_dir("addons-update");
+        let state = AppState::load(dir.join("data"), dir.join("cache"))
+            .await
+            .unwrap();
+        let addon = |id: &str| {
+            serde_json::from_value::<Descriptor>(json!({
+                "manifest": {"id": id, "name": id},
+                "transportUrl": format!("https://{id}.example/manifest.json")
+            }))
+            .unwrap()
+        };
+        state
+            .update_addons(|addons| {
+                addons.push(addon("a"));
+                Ok(())
+            })
+            .await
+            .unwrap();
+        let path = state.profile_dir().join("addons.json");
+        let original = std::fs::read(&path).unwrap();
+        std::fs::create_dir(state.profile_dir().join("addons.json.tmp")).unwrap();
+
+        let failed = state
+            .update_addons(|addons| {
+                addons.push(addon("b"));
+                Ok(())
+            })
+            .await;
+
+        assert!(matches!(failed, Err(IpcError::Storage(_))));
+        let current = state.addons.read().await;
+        assert_eq!(current.len(), 1, "memory never runs ahead of disk");
+        assert_eq!(current[0].manifest.id, "a");
+        assert_eq!(std::fs::read(path).unwrap(), original);
+    }
+
+    #[tokio::test]
     async fn failed_profile_prefs_write_rolls_device_settings_back_byte_for_byte() {
         let dir = crate::persist::tests::temp_dir("settings-rollback");
         let data = dir.join("data");
@@ -970,7 +1019,7 @@ mod tests {
             .update_settings(|s| s.patched(json!({"hideAnime": true})), |_| {})
             .await
             .unwrap();
-        state.persist_addons().await.unwrap();
+        state.update_addons(|_| Ok(())).await.unwrap();
         state.switch_profile(&primary, |_| {}).await.unwrap();
         assert_eq!(state.addons.read().await.len(), 1);
         assert_eq!(state.settings.read().await.theme, "ocean");

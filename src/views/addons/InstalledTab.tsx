@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowUp, RefreshCw, Settings2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AddonLogo } from "../../components/cards";
-import { Badge, EmptyState, ErrorNote } from "../../components/ui";
+import { Badge, EmptyState, ErrorNote, Modal } from "../../components/ui";
 import {
   addonCheckUpdates,
   addonRefresh,
@@ -36,16 +36,20 @@ export function InstalledTab() {
   const [updates, setUpdates] = useState<AddonUpdate[]>([]);
   const [checking, setChecking] = useState(false);
   const [checked, setChecked] = useState(false);
+  const checkRequestRef = useRef(0);
 
   const check = useCallback(async (force: boolean) => {
+    const id = ++checkRequestRef.current;
     setChecking(true);
     try {
-      setUpdates(await addonCheckUpdates(force));
+      const next = await addonCheckUpdates(force);
+      if (id !== checkRequestRef.current) return;
+      setUpdates(next);
       setChecked(true);
     } catch (e) {
-      setError(errorMessage(e));
+      if (id === checkRequestRef.current) setError(errorMessage(e));
     } finally {
-      setChecking(false);
+      if (id === checkRequestRef.current) setChecking(false);
     }
   }, []);
 
@@ -54,8 +58,19 @@ export function InstalledTab() {
   const installedKey = user.map((a) => `${a.transportUrl} ${a.manifest.version ?? ""}`).join("\n");
   useEffect(() => {
     if (installedKey) void check(false);
-    else setUpdates([]);
+    else {
+      checkRequestRef.current += 1;
+      setUpdates([]);
+      setChecking(false);
+      setChecked(false);
+    }
   }, [installedKey, check]);
+  useEffect(
+    () => () => {
+      checkRequestRef.current += 1;
+    },
+    [],
+  );
 
   const needle = search.trim().toLowerCase();
   const shown = user.filter(
@@ -177,9 +192,22 @@ function InstalledRow({
   onRemove: () => Promise<void>;
 }) {
   const [removing, setRemoving] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [updating, setUpdating] = useState(false);
   const m = addon.manifest;
   const configureUrl = configureUrlOf(addon);
+
+  useEffect(() => {
+    if (!confirming) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (!removing) setConfirming(false);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [confirming, removing]);
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-edge-soft bg-elevated/40 px-5 py-4">
       <div className="flex items-center gap-4">
@@ -250,14 +278,7 @@ function InstalledRow({
           )}
           <button
             disabled={removing}
-            onClick={async () => {
-              setRemoving(true);
-              try {
-                await onRemove();
-              } finally {
-                setRemoving(false);
-              }
-            }}
+            onClick={() => setConfirming(true)}
             className="flex h-9 shrink-0 items-center rounded-lg border border-edge px-3.5 text-[12.5px] font-semibold text-ink-muted transition-colors hover:border-danger/40 hover:bg-danger/10 hover:text-[oklch(0.75_0.12_25)] disabled:opacity-50"
           >
             Remove
@@ -274,6 +295,40 @@ function InstalledRow({
           </ul>
         )}
       </div>
+      {confirming && (
+        <div role="dialog" aria-modal="true" aria-label={`Remove ${m.name}?`}>
+          <Modal title={`Remove ${m.name}?`} onClose={() => !removing && setConfirming(false)}>
+            <p className="text-[13.5px] leading-relaxed text-ink-muted">
+              This removes the addon and its saved configuration. You can install it again later,
+              but you may need to set it up again.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                className={SMALL_BUTTON}
+                disabled={removing}
+                onClick={() => setConfirming(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className={SMALL_BUTTON}
+                disabled={removing}
+                onClick={async () => {
+                  setConfirming(false);
+                  setRemoving(true);
+                  try {
+                    await onRemove();
+                  } finally {
+                    setRemoving(false);
+                  }
+                }}
+              >
+                {removing ? "Removing…" : "Remove"}
+              </button>
+            </div>
+          </Modal>
+        </div>
+      )}
     </div>
   );
 }

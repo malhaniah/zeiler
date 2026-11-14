@@ -103,10 +103,17 @@ export function UpdatePrompt() {
       )}
       <dialog
         ref={dialogRef}
+        role="dialog"
         aria-labelledby="update-title"
         aria-describedby="update-description"
         onCancel={(e) => {
           e.preventDefault();
+          dismiss();
+        }}
+        onKeyDown={(e) => {
+          if (e.key !== "Escape") return;
+          e.preventDefault();
+          e.stopPropagation();
           dismiss();
         }}
         onClick={(e) => {

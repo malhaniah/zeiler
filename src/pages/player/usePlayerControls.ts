@@ -6,8 +6,8 @@
  *
  * Keys work while the Zeiler window has focus: Space play/pause (replay once ended),
  * ←/→ seek 5 s, ↑/↓ volume ±5, m mute, f fullscreen, s next subtitle, c next second
- * subtitle, z/x subtitle delay −/+0.1 s, [ / ] slower/faster, Escape back. A focused text field
- * keeps its own keys, and so does the focused volume slider for the arrows; the seek
+ * subtitle, z/x subtitle delay −/+0.1 s, [ / ] slower/faster, Escape back. Focused text fields
+ * and selects keep their own keys, and so does the focused volume slider for the arrows; the seek
  * bar does not (its native step is a fraction of a second), so ←/→ still seek 5 s after
  * a click on it. An open menu takes Escape first (it closes, see ControlsBar).
  *
@@ -352,6 +352,7 @@ export function usePlayerKeys({
         !target.hasAttribute(SEEK_SLIDER_ATTR);
       const typing =
         target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
         (target instanceof HTMLInputElement && target.type !== "range" && target.type !== "button");
       if (e.key === "Escape") {
         onBack();

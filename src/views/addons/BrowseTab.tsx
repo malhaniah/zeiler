@@ -93,9 +93,17 @@ function Directory() {
   }, [search]);
 
   useEffect(() => {
+    let cancelled = false;
     marketplaceCategories()
-      .then(setCategories)
-      .catch(() => setCategories([]));
+      .then((next) => {
+        if (!cancelled) setCategories(next);
+      })
+      .catch(() => {
+        if (!cancelled) setCategories([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [showAdult, refreshTick]);
 
   // a new query starts again at page 0
@@ -126,6 +134,9 @@ function Directory() {
       .finally(() => {
         if (id === request.current) setLoading(false);
       });
+    return () => {
+      if (request.current === id) request.current += 1;
+    };
   }, [debounced, type, resource, category, sort, pageNo, showAdult, hideP2p, refreshTick]);
 
   const sourcesLine = page
@@ -153,10 +164,11 @@ function Directory() {
             setLoading(true);
             try {
               await marketplaceRefresh();
+              setRefreshTick((t) => t + 1);
             } catch (e) {
               setError(errorMessage(e));
+              setLoading(false);
             }
-            setRefreshTick((t) => t + 1);
           }}
         >
           <RefreshCw size={14} /> Refresh
@@ -213,7 +225,7 @@ function Directory() {
       {!loading && page && entries.length === 0 && !error && (
         <EmptyState title="Nothing matches">Try another search or fewer filters.</EmptyState>
       )}
-      {!loading && page?.hasMore && (
+      {!loading && !error && page?.hasMore && (
         <button className={`${SMALL_BUTTON} self-center`} onClick={() => setPageNo((n) => n + 1)}>
           Show more
         </button>
@@ -275,7 +287,9 @@ function DirectoryRow({ entry, onOpen }: { entry: MarketEntry; onOpen: () => voi
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={(e) => {
-        if (e.key === "Enter") onOpen();
+        if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return;
+        e.preventDefault();
+        onOpen();
       }}
       className="flex cursor-pointer items-center gap-4 rounded-2xl border border-edge-soft bg-elevated/40 px-5 py-4 text-left transition-colors hover:border-edge"
     >

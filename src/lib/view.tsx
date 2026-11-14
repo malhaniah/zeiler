@@ -12,6 +12,7 @@ import {
 import { exit, onBackButtonPress } from "@tauri-apps/api/app";
 import { playerActive } from "./playback-handoff";
 import { IS_ANDROID } from "./platform";
+import { useSearch } from "./store";
 import type { MetaItem, MetaPreview, Video } from "./types";
 
 // Names reserved for later milestones (docs/ARCHITECTURE.md, "Navigation names") are
@@ -118,6 +119,7 @@ const ViewContext = createContext<ViewCtx | null>(null);
 
 export function ViewProvider({ children }: { children: ReactNode }) {
   const [stack, setStack] = useState<Frame[]>([{ kind: "home" }]);
+  const { open: searchOpen } = useSearch();
 
   const push = useCallback((frame: Frame) => {
     setStack((prev) => {
@@ -176,14 +178,19 @@ export function ViewProvider({ children }: { children: ReactNode }) {
   // the shell stays mounted underneath it, and the player's own Escape goes back.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" || playerActive()) return;
+      if (
+        e.key !== "Escape" ||
+        playerActive() ||
+        searchOpen ||
+        document.querySelector("dialog[open], [role=dialog]:not(dialog)")
+      ) return;
       const target = e.target as HTMLElement | null;
       if (target && /^(input|textarea|select)$/i.test(target.tagName)) return;
       if (popsOnEscape(value.top)) value.goBack();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [value]);
+  }, [value, searchOpen]);
 
   // Android Back is Escape (it closes a menu, leaves the player, pops an overlay frame);
   // on a root view with nothing open it leaves the app.
@@ -196,7 +203,10 @@ export function ViewProvider({ children }: { children: ReactNode }) {
       const target = document.activeElement ?? document.body;
       const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
       const handled =
-        playerActive() || popsOnEscape(value.top) || document.querySelector("[data-player-menu], [role=dialog]");
+        playerActive() ||
+        searchOpen ||
+        popsOnEscape(value.top) ||
+        document.querySelector("[data-player-menu], dialog[open], [role=dialog]:not(dialog)");
       if (handled) target.dispatchEvent(escape);
       else if (value.top.kind !== "home") value.setView("home");
       else void exit(0);
@@ -208,7 +218,7 @@ export function ViewProvider({ children }: { children: ReactNode }) {
       gone = true;
       void listener?.unregister();
     };
-  }, [value]);
+  }, [value, searchOpen]);
 
   return <ViewContext.Provider value={value}>{children}</ViewContext.Provider>;
 }
