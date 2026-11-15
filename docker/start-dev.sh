@@ -3,6 +3,7 @@ set -euo pipefail
 
 app_pid=
 desktop_pids=
+vnc_passwd_file=
 
 cleanup() {
     status=$?
@@ -15,6 +16,9 @@ cleanup() {
     for pid in $desktop_pids; do
         kill -TERM "$pid" 2>/dev/null
     done
+    if [ -n "$vnc_passwd_file" ] && [ -f "$vnc_passwd_file" ]; then
+        rm -f "$vnc_passwd_file"
+    fi
     wait
     exit "$status"
 }
@@ -22,8 +26,13 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
+vnc_password="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 8)"
+vnc_passwd_file="$(mktemp)"
+printf '%s\n' "$vnc_password" | tigervncpasswd -f > "$vnc_passwd_file"
+chmod 600 "$vnc_passwd_file"
+
 Xtigervnc "$DISPLAY" -geometry "${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}" -depth 24 \
-    -nolisten tcp -ac -SecurityTypes None -localhost yes -rfbport 5900 \
+    -nolisten tcp -ac -SecurityTypes VncAuth -PasswordFile "$vnc_passwd_file" -localhost yes -rfbport 5900 \
     -AlwaysShared -noreset &
 desktop_pids="$!"
 
@@ -55,6 +64,7 @@ if [ ! -x node_modules/.bin/tauri ] || [ ! -f "$lock_marker" ] \
 fi
 
 printf '\nZeiler desktop: http://localhost:6080\n'
+printf 'VNC password: %s\n' "$vnc_password"
 printf 'Vite is available to Tauri inside the container at http://localhost:1420.\n\n'
 
 setsid dbus-run-session -- npm run tauri -- dev &
