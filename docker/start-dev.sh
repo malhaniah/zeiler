@@ -26,7 +26,7 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-vnc_password="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 8)"
+vnc_password="$(head -c 6 /dev/urandom | base64 -w0)"
 vnc_passwd_file="$(mktemp)"
 printf '%s\n' "$vnc_password" | tigervncpasswd -f > "$vnc_passwd_file"
 chmod 600 "$vnc_passwd_file"

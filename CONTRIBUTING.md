@@ -43,7 +43,9 @@ docker compose up --build
 The image build installs system packages and Rust. The first container start runs `npm ci`
 and compiles the Tauri app, so it can take a while. When the virtual desktop is ready, open
 **http://localhost:6080** in your browser. This is a noVNC view of the Linux Tauri app on a
-TigerVNC virtual desktop, not the limited browser WebShell.
+TigerVNC virtual desktop, not the limited browser WebShell. If noVNC asks for a password,
+copy the `VNC password:` value printed by Compose or shown by `docker compose logs zeiler`;
+a new password is generated each time the container starts.
 
 Leave Compose running while you work:
 
@@ -76,9 +78,10 @@ This does not delete your source checkout or Docker's image-build cache.
 - The container validates the **Linux Tauri shell and external-mpv path**. It does not
   validate Windows/macOS embedded libmpv playback, native installers, host GPU/audio
   behavior, or Android. Test those changes on the relevant host or device as well.
-- The development display has no password or encryption. Compose binds it to host loopback
-  only (`127.0.0.1:6080`); do not expose it to a shared or public network or enter real
-  credentials into a shared session.
+- The development display uses a random VNC password printed to the container logs, but its
+  HTTP/VNC connection is unencrypted. Compose binds it to host loopback only
+  (`127.0.0.1:6080`); do not expose it to a shared or public network, share its logs, or
+  enter real credentials into a shared session.
 - Use the virtual desktop rather than a Vite URL for end-to-end checks: `npm run dev` alone
   serves only the limited WebShell and cannot exercise Tauri IPC, the Rust engine or mpv.
 
