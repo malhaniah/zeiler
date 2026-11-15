@@ -39,6 +39,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     patchelf \
     pkg-config \
     tigervnc-standalone-server \
+    tigervnc-tools \
     websockify \
     wget \
     xdg-utils \

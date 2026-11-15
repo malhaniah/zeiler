@@ -64,7 +64,9 @@ With Docker and Docker Compose installed, run this from the repository root:
 docker compose up --build
 ```
 
-Open **[http://localhost:6080](http://localhost:6080)**. When you are done, stop the container and run:
+Open **[http://localhost:6080](http://localhost:6080)**. If noVNC asks for a password, copy
+the `VNC password:` value printed by Compose (or run `docker compose logs zeiler`). It is
+regenerated when the container starts. When you are done, stop the container and run:
 
 ```bash
 docker compose down
