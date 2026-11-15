@@ -7,121 +7,97 @@
 
 <h1 align="center">Zeiler</h1>
 
-<p align="center">A free, open-source client for the Stremio addon ecosystem, built in Rust for desktop, Android phones and Android TV.</p>
+<p align="center">A free, open-source client for the Stremio addon ecosystem, built with Rust and Tauri 2 for desktop, Android phones and Android TV.</p>
 
 <p align="center">
   <a href="https://github.com/malhaniah/zeiler/releases/latest"><img src="https://img.shields.io/github/v/release/malhaniah/zeiler" alt="Latest release"></a>
   <a href="https://github.com/malhaniah/zeiler/actions/workflows/ci.yml"><img src="https://github.com/malhaniah/zeiler/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/malhaniah/zeiler" alt="License: GPL-3.0"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/malhaniah/zeiler" alt="License: GPL-3.0-or-later"></a>
   <img src="https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Android-555" alt="Platforms: Windows, macOS, Linux, Android">
 </p>
 
-Zeiler is a self-contained media client that speaks the open
-[Stremio addon protocol](https://github.com/Stremio/stremio-addon-sdk/blob/master/docs/protocol.md):
-a built-in torrent streaming engine, native playback and its own player screen, with no
-external streaming server, no browser and no Node runtime required. Desktop playback uses
-libmpv or an external mpv; Android uses Media3. It is in early development.
+Zeiler combines a built-in torrent streaming engine, native playback and a React interface.
+It speaks the open [Stremio addon protocol](https://github.com/Stremio/stremio-addon-sdk/blob/master/docs/protocol.md)
+without requiring a browser, Node runtime or external streaming server at runtime. Desktop
+playback uses libmpv or external mpv; Android uses Media3. Zeiler is in early development.
 
-> Zeiler hosts no media, indexes no media, and ships no content addon.
+> **Zeiler hosts no media, indexes no media, and ships no content addon.**
 > You bring your own addons; Zeiler is just the boat.
 
-Paste any addon manifest URL. Zeiler ships no stream or content addon and endorses none. For
-browsing out of the box, a few *metadata and subtitle* addons are built in — Cinemeta
-(catalogs, details, episode lists), Anime Kitsu (anime catalogs and details) and
-OpenSubtitles v3 (subtitles) — none serves streams, and each can be turned off in Settings.
+Paste any addon manifest URL to install it. Optional built-in metadata and subtitle addons—Cinemeta,
+Anime Kitsu and OpenSubtitles v3—provide catalogs, details, episode lists and subtitles, never streams.
+Each can be turned off in **Settings → Content**.
 
 ## Download
 
-Get the latest build from the [Releases page](https://github.com/malhaniah/zeiler/releases/latest).
-Playback is built in on Windows and macOS. On Linux it needs [mpv](https://mpv.io) installed
-(Zeiler finds it automatically in the usual places, or you can set its path in Settings).
+Get the latest build from the **[Releases page](https://github.com/malhaniah/zeiler/releases/latest)**.
 
-| Platform | Download | mpv |
+| Platform | Download | Playback |
 | --- | --- | --- |
-| Windows 10/11 | `Zeiler_*_x64-setup.exe` (per-user, no admin) | not needed — optional, for playing in your own mpv window: `winget install shinchiro.mpv` |
-| macOS 12+ (Apple Silicon) | `Zeiler_*_aarch64.dmg` | not needed — optional, for playing in your own mpv window: `brew install mpv` |
-| macOS 12+ (Intel) | `Zeiler_*_x64.dmg` | not needed — optional: `brew install mpv` |
-| Debian / Ubuntu | `Zeiler_*_amd64.deb` | pulled in automatically |
-| Fedora / openSUSE | `Zeiler-*.x86_64.rpm` | from your distro (Fedora: RPM Fusion) |
-| Other Linux | `Zeiler_*_amd64.AppImage` | from your distro |
+| Windows 10/11 | `Zeiler_*_x64-setup.exe` (per-user, no admin) | Built in; optional external mpv: `winget install shinchiro.mpv` |
+| macOS 12+ (Apple Silicon) | `Zeiler_*_aarch64.dmg` | Built in; optional external mpv: `brew install mpv` |
+| macOS 12+ (Intel) | `Zeiler_*_x64.dmg` | Built in; optional external mpv: `brew install mpv` |
+| Android phones, tablets and TV | Universal `.apk` (arm64 and armv7) | Built in with Media3 |
+| Debian / Ubuntu | `Zeiler_*_amd64.deb` | External mpv, installed with the package |
+| Fedora / openSUSE | `Zeiler-*.x86_64.rpm` | Install mpv from your distro (Fedora: RPM Fusion) |
+| Other Linux | `Zeiler_*_amd64.AppImage` | Install mpv from your distro |
 
-Builds are not code-signed or notarized yet. On Windows, SmartScreen may warn — choose
-**More info → Run anyway**. On macOS, the first time it says “Zeiler” Not Opened: click
-**Done**, then in System Settings → Privacy & Security click **Open Anyway** next to “Zeiler
-was blocked” and confirm (on macOS 14 and earlier, right-click Zeiler → **Open** also works;
-from a terminal, `xattr -dr com.apple.quarantine /Applications/Zeiler.app` does the same).
-Once installed, Zeiler updates itself: signed updates install automatically the next time you
-open it.
+Desktop builds are not code-signed or notarized yet. On Windows, SmartScreen may warn: choose
+**More info → Run anyway**. On macOS, if “Zeiler” Not Opened appears, click **Done**, then open
+**System Settings → Privacy & Security → Open Anyway** next to “Zeiler was blocked” and confirm.
+On macOS 14 and earlier, right-clicking Zeiler and choosing **Open** also works.
 
-**Upgrading from Sailor.** Zeiler was called Sailor up to v0.1.2, and Sailor installs update
-to Zeiler on their own. Your addons and settings come along. On Windows the update also
-removes Sailor. On macOS the updated app keeps its old name in Applications: rename
+Desktop updates are signed and install automatically the next time Zeiler opens. Download first
+installs only from the official Releases page.
+
+**Upgrading from Sailor:** Zeiler was called Sailor through v0.1.2. Sailor installations update to
+Zeiler with addons and settings intact. Windows also removes Sailor. On macOS, rename the remaining
 `Sailor.app` to `Zeiler.app`, or replace it with the new `.dmg`.
 
-## Features
+## Build and contribute
 
-- **Its own player.** Every video opens Zeiler's player screen with the full set of mpv controls: seek, speed, chapters on the seek bar, a stats overlay, a quality menu for HLS variants, keyboard shortcuts and fullscreen.
-- **Built-in playback on Windows and macOS.** libmpv draws the video inside the Zeiler window. On Linux, videos play in an mpv window that Zeiler controls with the same full set of controls.
-- **Library and Continue Watching.** Zeiler remembers where you stopped: resume prompts, watched marks for titles, seasons and episodes, a history, and progress bars on posters.
-- **Skip and next episode.** Intros, recaps and credits can be skipped (by themselves too, with an Undo), and the next episode plays from the same source when one ends. Skip times come from AniSkip and TheIntroDB, which then learn which title and episode you play; Settings → Player & quality turns that off.
-- **Subtitles and audio.** Subtitles in your languages from the video, your subtitle addons or a file, picked automatically, with delay, encoding and style controls, per-show memory and a second subtitle track. Audio tracks and delay, volume normalization, and volume above 100%.
-- **Catalogs for every type.** Movies, Shows and Anime rooms with genre rows from your addons' manifests, every other type on Home, a Browse screen for any catalog and its filters, and Home rows you can move, hide and rename. Adult catalogs stay hidden unless you turn them on.
-- **Live TV.** Channels from your addons' tv and channel catalogs, plus your own IPTV: M3U and Xtream Codes playlists with an XMLTV guide for now and next. Playlist credentials are protected by the system keychain, or Android Keystore on Android.
-- **Addon marketplace.** Paste an addon URL, or browse an opt-in community directory in which every listing is labelled "not reviewed by Zeiler". Every install goes through a confirmation dialog, and installed addons can be updated, reconfigured and reordered. `stremio://` links can open in Zeiler on Windows and Linux (opt-in).
-- **Local profiles.** Everyone sharing the computer gets their own addons, library and preferences, with an optional PIN.
-- **Optional Stremio account sync.** Sign a profile in to a Stremio account, with a code you confirm in the browser or with email and password, to sync its library and, if you choose, its addons with Stremio's own apps.
-- **Responsive cinematic interface.** Nebula's sea-ink and gold design system with bundled Sora and Manrope fonts, left navigation on wide screens, touch-friendly bottom navigation on smaller screens, immersive title artwork, and responsive rails, episodes, search and playback controls. Purposeful transitions respect reduced-motion settings.
-- **Installable web shell.** The PWA caches its shell for offline launches. This release still requires the desktop app for catalogs, accounts and playback.
-- **Updates itself.** Signed updates from GitHub releases install automatically the next time you open Zeiler, and a dialog lets you restart and update as soon as a download is ready.
-- **Rust core.** The addon protocol client, streaming engine, playback orchestration and sync rules are Rust crates; the UI is a thin TypeScript layer in a Tauri 2 shell. Windows, macOS, Linux, Android phones and Android TV.
+### Docker: the easiest full-app setup
 
-## Privacy
+With Docker and Docker Compose installed, run this from the repository root:
 
-Zeiler has no telemetry and no account of its own. Signed out, it talks only to the
-addons you install (and the built-ins you leave on), to GitHub for desktop updates, to AniSkip,
-Kitsu and TheIntroDB for skip times unless you turn that off, to the addon directories
-once you turn the directory on, and to any IPTV provider you add yourself. If you sign a profile in to a
-Stremio account, Zeiler sends Stremio's servers (api.strem.io, link.stremio.com) your
-sign-in (a code you confirm in the browser, or your email and password), your library
-items (titles, progress, watched marks) and, if you turn on addon sync, your addons'
-addresses, including any keys inside configured ones. The session key is kept in your
-system's keychain (Android Keystore on Android) if you ask to stay signed in (otherwise only in memory until Zeiler
-quits); nothing else goes to Stremio, and nothing is sent there once you sign out.
+```bash
+docker compose up --build
+```
 
-## Architecture
+Open **[http://localhost:6080](http://localhost:6080)**. When you are done, stop the container and run:
 
-| Component | Role |
-| --- | --- |
-| `crates/zeiler-addon` | Stremio addon-protocol client (manifests, catalogs, meta, streams, subtitles) |
-| `crates/zeiler-engine` | Built-in BitTorrent streaming engine (librqbit) exposing local HTTP streams |
-| `crates/zeiler-player` | Playback: embedded libmpv or remote-controlled mpv on desktop, Media3 on Android |
-| `crates/zeiler-account` | Library items, playback-progress rules and the watched bitfield (Stremio-compatible) |
-| `crates/zeiler-skip` | Skip segments from AniSkip and TheIntroDB |
-| `crates/zeiler-iptv` | M3U, Xtream Codes and XMLTV parsing and fetching |
-| `crates/zeiler-sync` | Opt-in Stremio account sync: the account API client and the library/addon sync rules |
-| `src-tauri` | Tauri 2 shell wiring the core to the UI |
-| `src/` | TypeScript/React frontend |
-| `website/` | The download website for zeiler.io (static, Vite) — see [website/README.md](website/README.md) |
+```bash
+docker compose down
+```
 
-## Building from source
+This runs the **actual Linux Tauri app**, including external mpv, in a virtual desktop accessible
+through your browser. It is not the limited installable web shell: that PWA caches its interface for
+offline launches, but catalogs, accounts and playback require the native app.
 
-Prerequisites: Rust (stable, MSVC toolchain on Windows), Node.js ≥ 22, and
-[mpv](https://mpv.io) for desktop playback (install it on your PATH, or set its location in
-Settings — Zeiler works without it, but can't play anything on desktop).
+Your source checkout is mounted for live development, and named volumes preserve dependency and
+build caches between runs. You do not need Rust, Node.js or the native Tauri toolchain on the host.
+See [CONTRIBUTING.md](CONTRIBUTING.md#quickstart-the-full-app-in-docker) for Docker details,
+troubleshooting and quality gates.
+
+### Native development
+
+Install Node.js 22.12 or newer and Rust with rustup; the repository pins Rust 1.99.0. Linux also
+needs the Tauri system packages listed in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ```bash
 npm install
 npm run tauri dev
 ```
 
-Built-in playback on Windows and macOS is the `embedded` cargo feature and needs the
-pinned libmpv first — see [CONTRIBUTING.md](CONTRIBUTING.md#built-in-playback-windows-macos). Release bundles:
-`npm run tauri build`. Architecture notes live in
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); third-party attribution in
-[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+Linux uses external [mpv](https://mpv.io) for playback. Plain development builds on Windows and
+macOS also use external mpv; see [CONTRIBUTING.md](CONTRIBUTING.md#built-in-playback-windows-macos)
+to set up embedded libmpv or build release bundles.
 
-For Android, install a JDK, Android SDK/NDK and the `aarch64-linux-android` and
-`armv7-linux-androideabi` Rust targets, then:
+<details>
+<summary><strong>Android build from source</strong></summary>
+
+Android additionally requires a JDK, Android SDK/NDK and the `aarch64-linux-android` and
+`armv7-linux-androideabi` Rust targets:
 
 ```bash
 npm run tauri android init --ci
@@ -129,36 +105,72 @@ node scripts/third-party-licenses.mjs --target aarch64-linux-android --features 
 npm run tauri android build --target aarch64 armv7 --apk --aab
 ```
 
-`src-tauri/tauri.android.conf.json` takes the version from `package.json` and derives the
-Play `versionCode`. Release signing reads `src-tauri/gen/android/keystore.properties`
-(copy `keystore.properties.example`, keeping the real file and keystore out of Git), or the
-`ZEILER_ANDROID_*` environment variables supported by `app/build.gradle.kts`. The
-`fastlane internal` lane uploads the signed AAB and `fastlane/metadata/android` listing to
-Play internal testing when `GOOGLE_PLAY_SERVICE_ACCOUNT_FILE` points to an authorized
-service-account JSON.
+`src-tauri/tauri.android.conf.json` takes the version from `package.json` and derives the Play
+`versionCode`. Release signing uses `src-tauri/gen/android/keystore.properties` (copy the example
+and keep the real file and keystore out of Git) or the `ZEILER_ANDROID_*` environment variables.
+With `GOOGLE_PLAY_SERVICE_ACCOUNT_FILE` set to an authorized service-account JSON, `fastlane internal`
+uploads the signed AAB and store listing to Play internal testing.
 
-## Contributing
+</details>
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) — setup, quality gates, and the one
-non-negotiable rule (Zeiler ships no content, ever). Bug reports and feature requests
-have [issue forms](https://github.com/malhaniah/zeiler/issues/new/choose).
+Contributions must preserve Zeiler's non-negotiable rule: **no hosted media, media index or bundled
+content addon**. See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines and CI checks.
+Bug reports and feature requests have [issue forms](https://github.com/malhaniah/zeiler/issues/new/choose).
+
+## Features
+
+- **Addons and catalogs:** install from manifest URLs or an opt-in, unreviewed community directory;
+  browse movies, shows, anime and other catalog types with filters and customizable Home rows.
+- **Integrated player:** embedded libmpv on Windows and macOS, controlled external mpv on Linux,
+  and Media3 on Android, with seeking, speed, chapters, fullscreen and playback statistics.
+- **Subtitles and audio:** embedded, addon and local subtitles; dual subtitle tracks, delay,
+  encoding and styling; audio track selection, delay, normalization and volume above 100%.
+- **Library and profiles:** Continue Watching, progress bars, watched marks and history, with
+  separate local profiles and optional PINs.
+- **Skip and next episode:** optional intro, recap and credit skipping from AniSkip and TheIntroDB,
+  plus next-episode playback from the same source.
+- **Live TV and IPTV:** addon channels, M3U and Xtream Codes playlists, and XMLTV now/next guides.
+  Playlist credentials use the system keychain or Android Keystore.
+- **Optional Stremio sync:** sign in to sync library items and, if enabled, addons with Stremio.
+- **Responsive interface and updates:** desktop, touch and TV navigation, reduced-motion support,
+  an offline installable web shell, and signed desktop updates.
+
+## Privacy
+
+Zeiler has **no telemetry and no Zeiler account**. Depending on the features you enable, it connects to:
+
+- addons you install and built-ins you leave enabled;
+- GitHub for desktop updates;
+- AniSkip, Kitsu and TheIntroDB for skip times, unless disabled in **Settings → Player & quality**;
+- addon directories only after you opt in;
+- IPTV providers you add; and
+- Stremio only when you sign a profile in.
+
+Stremio sign-in sends either a browser-confirmed code or your email and password, plus library items
+(titles, progress and watched marks). Optional addon sync also sends configured addon addresses,
+including any keys embedded in them. If you choose to stay signed in, the session key is kept in the
+system keychain or Android Keystore; otherwise it remains in memory until Zeiler quits. Signing out
+stops further communication with Stremio.
+
+## Architecture
+
+Rust crates under [`crates/`](crates/) implement addons, torrent streaming, playback, accounts,
+skip lookups, IPTV and sync. [`src-tauri/`](src-tauri/) contains the Tauri 2 shell, and
+[`src/`](src/) contains the React/TypeScript interface. [`website/`](website/) is the static download
+site. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for design decisions and security posture.
 
 ## Security
 
-Found a vulnerability? Please report it privately through
-[GitHub's security advisories](https://github.com/malhaniah/zeiler/security/advisories/new),
-not as a public issue. [SECURITY.md](SECURITY.md) has the supported versions, what to
-include, the response targets and what is in scope.
+Report vulnerabilities privately through
+[GitHub Security Advisories](https://github.com/malhaniah/zeiler/security/advisories/new), not in a
+public issue. [SECURITY.md](SECURITY.md) covers supported versions, response targets and scope.
 
-## License
+## License and third-party notices
 
-Zeiler is licensed under the [GNU General Public License v3.0](LICENSE).
+Zeiler is licensed under [GPL-3.0-or-later](LICENSE). It is an independent project and is not
+affiliated with or endorsed by Stremio (Smart Code Ltd).
 
-Zeiler is an independent project and is not affiliated with or endorsed by Stremio (Smart Code Ltd).
-
-## Third-party notices
-
-Zeiler builds on stremio-core's protocol semantics and Harbor (both MIT), on mpv and libmpv
-and FFmpeg (LGPL, bundled on Windows and macOS), and on many Rust crates and npm packages.
-[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) lists every attribution, and each bundle
-ships the licence texts of what it contains.
+Zeiler builds on stremio-core's protocol semantics and Harbor (both MIT), mpv/libmpv and FFmpeg
+(LGPL, bundled on Windows and macOS), and many Rust crates and npm packages.
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) contains attribution and source offers; release
+bundles include the license texts for their contents.

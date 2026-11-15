@@ -1,0 +1,4 @@
+# The repository is bind-mounted at runtime; only container startup files are built in.
+**
+!Dockerfile
+!docker/**
