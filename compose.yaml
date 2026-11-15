@@ -1,0 +1,45 @@
+services:
+  zeiler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    init: true
+    working_dir: /workspace
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      CARGO_TERM_COLOR: always
+      DISPLAY: ":99"
+      DISPLAY_WIDTH: "1600"
+      DISPLAY_HEIGHT: "1000"
+      GALLIUM_DRIVER: llvmpipe
+      LIBGL_ALWAYS_SOFTWARE: "1"
+      NPM_CONFIG_UPDATE_NOTIFIER: "false"
+      PUID: ${PUID:-}
+      PGID: ${PGID:-}
+      WEBKIT_DISABLE_DMABUF_RENDERER: "1"
+    ports:
+      - "127.0.0.1:6080:6080"
+    volumes:
+      - .:/workspace
+      - node-modules:/workspace/node_modules
+      - target:/workspace/target
+      - cargo-registry:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - npm-cache:/home/zeiler/.npm
+    shm_size: 256mb
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent --show-error http://127.0.0.1:6080/ >/dev/null && pgrep -x Xtigervnc >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 30s
+
+volumes:
+  node-modules:
+  target:
+  cargo-registry:
+  cargo-git:
+  npm-cache:
