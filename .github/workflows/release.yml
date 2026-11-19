@@ -296,9 +296,10 @@ jobs:
         with:
           distribution: temurin
           java-version: 25
-      - uses: android-actions/setup-android@v3
       - name: Install the Android SDK and NDK
         run: |
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+          yes | sdkmanager --licenses >/dev/null
           sdkmanager "platforms;android-37.0" "build-tools;37.0.0" "ndk;29.0.14206865"
           echo "NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865" >> "$GITHUB_ENV"
           echo "RANLIB_armv7_linux_androideabi=$ANDROID_HOME/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib" >> "$GITHUB_ENV"
