@@ -89,12 +89,12 @@ export function LibraryView() {
   };
 
   return (
-    <main className="flex-1 overflow-y-auto px-12 pb-20 pt-28">
+    <main className="flex-1 overflow-y-auto px-5 pb-20 pt-24 sm:px-8 sm:pt-28 lg:px-12">
       <header className="mb-8 flex flex-col gap-2">
         <span className="text-[11px] font-bold uppercase tracking-[0.42em] text-ink-subtle">
           Collections
         </span>
-        <h1 className="font-display text-[44px] font-medium leading-[1.05] tracking-tight text-ink">
+        <h1 className="font-display text-[32px] font-medium leading-[1.05] tracking-tight text-ink sm:text-[44px]">
           My Library
         </h1>
         <p className="max-w-2xl text-[15px] text-ink-muted">
@@ -112,7 +112,7 @@ export function LibraryView() {
               setTab(id);
               setActionError(null);
             }}
-            className={`-mb-px border-b-2 px-4 pb-3 pt-1 text-[14.5px] font-medium transition-colors ${
+            className={`-mb-px min-h-11 border-b-2 px-4 pb-3 pt-1 text-[14.5px] font-medium transition-colors ${
               tab === id
                 ? "border-accent text-ink"
                 : "border-transparent text-ink-muted hover:text-ink"
@@ -169,7 +169,7 @@ export function LibraryView() {
       ) : shown.length === 0 ? (
         <EmptyState title={EMPTY[tab].title}>{EMPTY[tab].body}</EmptyState>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-x-5 gap-y-9">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-x-4 gap-y-7 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))] sm:gap-x-5 sm:gap-y-9">
           {shown.map((entry) => (
             <LibraryCard
               key={entry.id}

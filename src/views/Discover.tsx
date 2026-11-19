@@ -26,7 +26,7 @@ export function DiscoverView() {
 
   if (!loaded) {
     return (
-      <main className="flex-1 overflow-y-auto px-12 pt-32">
+      <main className="flex-1 overflow-y-auto px-5 pt-28 sm:px-8 sm:pt-32 lg:px-12">
         <Spinner label="Loading…" />
       </main>
     );
@@ -34,7 +34,7 @@ export function DiscoverView() {
 
   if (catalogs.length === 0) {
     return (
-      <main className="flex-1 overflow-y-auto px-12 pt-32">
+      <main className="flex-1 overflow-y-auto px-5 pt-28 sm:px-8 sm:pt-32 lg:px-12">
         <EmptyState title="Nothing to discover yet">
           Install an addon with catalogs to fill this page.
           <div className="mt-5">
@@ -70,7 +70,7 @@ export function DiscoverView() {
   };
 
   return (
-    <main className="flex-1 overflow-y-auto px-12 pb-20 pt-20">
+    <main className="flex-1 overflow-y-auto px-5 pb-20 pt-24 sm:px-8 sm:pt-28 lg:px-12">
       <div className="flex flex-col gap-14">
         {(!first || featured.length > 0) && <FeaturedBanner items={featured} onOpen={openMeta} />}
         <CatalogRows refs={[lead]} {...rowProps} />

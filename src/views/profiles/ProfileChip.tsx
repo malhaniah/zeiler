@@ -23,8 +23,8 @@ export function ProfileChip({ compact = false }: { compact?: boolean }) {
       title={several ? "Switch profile" : "Profiles"}
       className={
         compact
-          ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-ink-muted transition-colors hover:bg-elevated/70 hover:text-ink"
-          : "mx-4 mb-3 flex h-14 items-center justify-center gap-3 rounded-xl px-2 text-left text-ink-muted transition-colors hover:bg-elevated/50 hover:text-ink lg:justify-start lg:px-3"
+          ? "app-profile-chip flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-ink-muted transition-colors hover:bg-elevated/70 hover:text-ink"
+          : "app-profile-chip mx-4 mb-3 flex h-14 items-center justify-center gap-3 rounded-xl px-2 text-left text-ink-muted transition-colors hover:bg-elevated/50 hover:text-ink lg:justify-start lg:px-3"
       }
     >
       <ProfileAvatar profile={active} size={32} />

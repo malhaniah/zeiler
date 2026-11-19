@@ -26,13 +26,13 @@ export function AddonsView() {
   };
 
   return (
-    <main className="flex-1 overflow-y-auto px-12 pb-20 pt-28">
+    <main className="flex-1 overflow-y-auto px-5 pb-20 pt-24 sm:px-8 sm:pt-28 lg:px-12">
       <div className="mx-auto flex max-w-4xl flex-col gap-8">
         <header className="flex flex-col gap-2">
           <span className="text-[11px] font-bold uppercase tracking-[0.42em] text-ink-subtle">
             Collections
           </span>
-          <h1 className="font-display text-[44px] font-medium leading-[1.05] tracking-tight text-ink">
+          <h1 className="font-display text-[32px] font-medium leading-[1.05] tracking-tight text-ink sm:text-[44px]">
             Addons
           </h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-ink-muted">
@@ -45,7 +45,7 @@ export function AddonsView() {
         </header>
 
         <form
-          className="flex gap-3"
+          className="flex flex-col gap-3 sm:flex-row"
           onSubmit={(e) => {
             e.preventDefault();
             const input = url.trim();
@@ -59,12 +59,12 @@ export function AddonsView() {
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://example.com/manifest.json"
-            className="h-12 w-full rounded-xl border border-edge bg-canvas px-4 text-[14px] text-ink outline-none placeholder:text-ink-subtle focus:border-ink"
+            className="h-12 w-full rounded-xl border border-edge bg-canvas px-4 text-[16px] text-ink outline-none placeholder:text-ink-subtle focus:border-ink sm:text-[14px]"
           />
           <button
             type="submit"
             disabled={!url.trim()}
-            className="flex h-12 shrink-0 items-center rounded-xl bg-ink px-6 text-[13.5px] font-semibold text-canvas transition-transform hover:scale-[1.02] active:scale-[0.97] disabled:opacity-50"
+            className="flex h-12 shrink-0 items-center justify-center rounded-xl bg-ink px-6 text-[13.5px] font-semibold text-canvas transition-transform hover:scale-[1.02] active:scale-[0.97] disabled:opacity-50"
           >
             Add addon
           </button>
@@ -77,7 +77,7 @@ export function AddonsView() {
               key={id}
               aria-pressed={tab === id}
               onClick={() => setTab(id)}
-              className={`-mb-px border-b-2 px-4 pb-3 pt-1 text-[14.5px] font-medium transition-colors ${
+              className={`-mb-px min-h-11 border-b-2 px-4 pb-3 pt-1 text-[14.5px] font-medium transition-colors ${
                 tab === id ? "border-accent text-ink" : "border-transparent text-ink-muted hover:text-ink"
               }`}
             >

@@ -24,6 +24,12 @@ env:
 
     **Sailor is now Zeiler.** Sailor installs update to Zeiler on their own and keep your addons and settings. On Windows the update also removes Sailor. On macOS the app keeps the name `Sailor.app` in Applications: rename it to `Zeiler.app`, or replace it with the new `.dmg`.
 
+    ### 0.3.13 — Android phone and TV
+    - Android TV now uses native device detection, a cinematic expandable sidebar, larger artwork, and reliable D-pad focus and activation.
+    - Phone layouts adapt to narrow screens with a compact Settings rail, larger touch targets, safe-area spacing, working soft-keyboard resizing, and legible system bars.
+    - Replaced the default Tauri Android launcher icons with Zeiler's ship, including round and adaptive icons.
+    - Releases now build, signature-check, and attach both the signed universal Android APK and the Google Play AAB.
+
     ### 0.3.12 — navigation and reliability
     - Fixed Back becoming unresponsive after opening featured titles and heroes, including an Android TV top-bar overlap.
     - Fixed stream, catalog, settings, profile and account loading failures that could leave screens stuck.
@@ -116,6 +122,8 @@ jobs:
             --out third-party-licenses/x86_64-unknown-linux-gnu.txt
           node scripts/third-party-licenses.mjs --target x86_64-pc-windows-msvc \
             --features embedded --out third-party-licenses/x86_64-pc-windows-msvc.txt
+          node scripts/third-party-licenses.mjs --target aarch64-linux-android \
+            --features tauri/custom-protocol --out third-party-licenses/aarch64-linux-android.txt
       - uses: actions/upload-artifact@v7
         with:
           name: third-party-licenses
@@ -267,13 +275,91 @@ jobs:
         if: startsWith(matrix.platform, 'macos')
         run: scripts/check-macos-app.sh "target/${{ matrix.target }}/release/bundle/macos/Zeiler.app"
 
-  # Publishes the draft only once every build has succeeded and latest.json has all
-  # four platforms, each pointing at an asset of this release. A failed build skips
+  android:
+    needs: [licenses, draft]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: third-party-licenses
+          path: third-party-licenses
+      - name: Bundle THIRD-PARTY-LICENSES.txt
+        run: cp third-party-licenses/aarch64-linux-android.txt src-tauri/licenses/THIRD-PARTY-LICENSES.txt
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+      - uses: android-actions/setup-android@v3
+      - name: Install the Android SDK and NDK
+        run: |
+          sdkmanager "platforms;android-37.0" "build-tools;37.0.0" "ndk;29.0.14206865"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865" >> "$GITHUB_ENV"
+          echo "RANLIB_armv7_linux_androideabi=$ANDROID_HOME/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib" >> "$GITHUB_ENV"
+      - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi
+      - uses: swatinem/rust-cache@v2
+        with:
+          key: android
+      - run: npm ci
+      - name: Decode the release keystore
+        id: keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ZEILER_ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "ZEILER_ANDROID_KEYSTORE_BASE64 is required" >&2
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/zeiler-release.keystore"
+          chmod 600 "$RUNNER_TEMP/zeiler-release.keystore"
+          echo "path=$RUNNER_TEMP/zeiler-release.keystore" >> "$GITHUB_OUTPUT"
+      - name: Build the signed universal APK and AAB
+        env:
+          ZEILER_ANDROID_KEYSTORE_PATH: ${{ steps.keystore.outputs.path }}
+          ZEILER_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ZEILER_ANDROID_KEYSTORE_PASSWORD }}
+          ZEILER_ANDROID_KEY_ALIAS: ${{ secrets.ZEILER_ANDROID_KEY_ALIAS }}
+          ZEILER_ANDROID_KEY_PASSWORD: ${{ secrets.ZEILER_ANDROID_KEY_PASSWORD }}
+        run: npm run tauri -- android build --ci --target aarch64 armv7 --apk --aab
+      - name: Verify and stage the Android packages
+        env:
+          VERSION: ${{ needs.draft.outputs.version }}
+        run: |
+          apk=src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
+          aab=src-tauri/gen/android/app/build/outputs/bundle/universalRelease/app-universal-release.aab
+          test -f "$apk" && test -f "$aab"
+          "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify "$apk"
+          jarsigner -verify "$aab"
+          mkdir -p target/release-artifacts
+          cp "$apk" "target/release-artifacts/Zeiler_${VERSION}_universal.apk"
+          cp "$aab" "target/release-artifacts/Zeiler_${VERSION}_universal.aab"
+      - name: Upload Android packages to the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.draft.outputs.version }}
+        run: gh release upload "v$VERSION" target/release-artifacts/Zeiler_${VERSION}_universal.apk target/release-artifacts/Zeiler_${VERSION}_universal.aab --clobber
+      - uses: actions/upload-artifact@v7
+        with:
+          name: zeiler-android-${{ needs.draft.outputs.version }}
+          path: target/release-artifacts/Zeiler_${{ needs.draft.outputs.version }}_universal.*
+          if-no-files-found: error
+          retention-days: 7
+
+  # Publishes the draft only once every build has succeeded, both Android packages are
+  # attached, and latest.json has all four desktop platforms, each pointing at an asset of
+  # this release. A failed build skips
   # this job; builds that finish together can also drop each other's entries (each
   # one rewrites latest.json from the copy it read). The release then stays a draft,
   # and releases/latest, the updater's latest.json, stays on the previous release.
   publish:
-    needs: [draft, build]
+    needs: [draft, build, android]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -305,6 +391,10 @@ jobs:
             const urls = new Set(assets.map((a) => a.url));
             const problems = [];
             if (latest.version !== version) problems.push(`latest.json is for ${latest.version}, not ${version}`);
+            for (const extension of ['apk', 'aab']) {
+              const name = `Zeiler_${version}_universal.${extension}`;
+              if (!assets.some((a) => a.name === name)) problems.push(`release has no ${name}`);
+            }
             for (const p of platforms) {
               const entry = latest.platforms?.[p];
               if (!entry?.signature) problems.push(`latest.json has no ${p}`);

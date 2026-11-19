@@ -59,7 +59,7 @@ export function TypeRoomView({ room }: { room: keyof typeof ROOMS }) {
     // the built-in Anime Kitsu fills the Anime room; point at its switch when it is off
     const kitsuOff = room === "anime" && settings?.builtinKitsu === false;
     return (
-      <main className="flex-1 overflow-y-auto px-12 pt-32">
+      <main className="flex-1 overflow-y-auto px-5 sm:px-8 lg:px-12 pt-32">
         <EmptyState title={`No ${config.label.toLowerCase()} catalogs`}>
           {kitsuOff
             ? "The built-in Anime Kitsu addon is switched off (Settings → Content), and none of your installed addons provides anime catalogs."
@@ -156,7 +156,7 @@ export function TypeRoomView({ room }: { room: keyof typeof ROOMS }) {
           autoMs={11000}
           onOpen={(meta) => openMeta(meta)}
         />
-        <div className="relative mx-auto flex max-w-[1700px] flex-col gap-12 px-12 pb-32 pt-12">
+        <div className="relative mx-auto flex max-w-[1700px] flex-col gap-12 px-5 sm:px-8 lg:px-12 pb-32 pt-12">
           {rowsBlock}
         </div>
       </main>
@@ -165,12 +165,12 @@ export function TypeRoomView({ room }: { room: keyof typeof ROOMS }) {
 
   return (
     <main className="relative h-full overflow-y-auto bg-canvas">
-      <div className="relative mx-auto flex max-w-[1700px] flex-col gap-12 px-12 pb-32 pt-32">
+      <div className="relative mx-auto flex max-w-[1700px] flex-col gap-12 px-5 sm:px-8 lg:px-12 pb-32 pt-32">
         <header className="flex flex-col gap-2">
           <span className="text-[11px] font-bold uppercase tracking-[0.42em] text-ink-subtle">
             {config.kicker}
           </span>
-          <h1 className="font-display text-[44px] font-medium leading-[1.05] tracking-tight text-ink">
+          <h1 className="font-display text-[32px] font-medium leading-[1.05] tracking-tight text-ink sm:text-[44px]">
             {config.title}
           </h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-ink-muted">{config.subtitle}</p>

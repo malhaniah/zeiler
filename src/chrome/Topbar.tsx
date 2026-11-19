@@ -43,7 +43,7 @@ export function Topbar() {
           <button
             aria-label="Back"
             onClick={goBack}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-edge-soft/60 bg-canvas/85 text-ink-muted transition-colors hover:bg-canvas hover:text-ink"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-edge-soft/60 bg-canvas/85 text-ink-muted transition-colors hover:bg-canvas hover:text-ink"
           >
             <ArrowLeft size={17} />
           </button>
@@ -51,7 +51,7 @@ export function Topbar() {
         <button
           aria-label="Zeiler home"
           onClick={() => setView("home")}
-          className="flex shrink-0 items-center gap-2 text-ink xl:hidden"
+          className="app-topbar-home flex shrink-0 items-center gap-2 text-ink xl:hidden"
         >
           <img src={zeilerLogo} alt="" className="h-9 w-9 sm:h-10 sm:w-10" />
           <span className="hidden font-brand text-[27px] font-medium tracking-tight sm:inline">
@@ -63,7 +63,7 @@ export function Topbar() {
         <button
           aria-label="Search movies and shows"
           onClick={() => setOpen(true)}
-          className="flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full border border-edge-soft/60 bg-canvas/70 text-ink-subtle transition-colors hover:bg-elevated hover:text-ink 2xl:w-60 2xl:justify-start 2xl:px-4"
+          className="flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-full border border-edge-soft/60 bg-canvas/70 text-ink-subtle transition-colors hover:bg-elevated hover:text-ink 2xl:w-60 2xl:justify-start 2xl:px-4"
         >
           <Search size={17} className="shrink-0" />
           <span className="hidden flex-1 text-left text-[13px] 2xl:inline">Search movies, shows…</span>
@@ -87,7 +87,7 @@ export function Topbar() {
             );
           })}
         </div>
-        <div className="xl:hidden">
+        <div className="app-topbar-profile xl:hidden">
           <ProfileChip compact />
         </div>
         <div className="hidden sm:block">

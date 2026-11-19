@@ -138,6 +138,11 @@ class TvPlayerPlugin(private val activity: Activity) : Plugin(activity) {
 
   override fun load(webView: WebView) {
     this.webView = webView
+    if (isAndroidTv(activity)) {
+      webView.settings.userAgentString = "${webView.settings.userAgentString} ZeilerAndroidTV"
+      webView.isFocusableInTouchMode = true
+      webView.requestFocus()
+    }
   }
 
   /** ExoPlayer and the views live on the main thread; Tauri calls in on its own. */

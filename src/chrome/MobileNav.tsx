@@ -74,7 +74,7 @@ export function MobileNav() {
             <button
               aria-label="Close navigation"
               onClick={() => setMoreOpen(false)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl text-ink-muted hover:bg-raised hover:text-ink"
+              className="flex h-11 w-11 items-center justify-center rounded-xl text-ink-muted hover:bg-raised hover:text-ink"
             >
               <X size={19} />
             </button>

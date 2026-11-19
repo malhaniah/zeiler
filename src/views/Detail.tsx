@@ -204,7 +204,7 @@ export function DetailView({
     <main className="animate-view-in absolute inset-0 z-30 overflow-y-auto bg-canvas">
       {/* hero */}
       <section className="relative">
-        <div className="relative h-[76svh] min-h-[540px] overflow-hidden sm:h-[78vh] sm:min-h-[640px]">
+        <div className="app-hero relative h-[65svh] min-h-[480px] overflow-hidden sm:h-[78vh] sm:min-h-[640px]">
           {backdrop ? (
             <img src={backdrop} alt="" className="absolute inset-0 h-full w-full object-cover" />
           ) : (

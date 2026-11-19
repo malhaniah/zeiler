@@ -44,8 +44,8 @@ export function HeroCarousel({
       <div
         className={
           variant === "card"
-            ? "min-h-[560px] animate-pulse rounded-[28px] border border-edge-soft bg-elevated/30"
-            : "h-[76svh] min-h-[540px] animate-pulse bg-elevated/30 sm:h-[78vh] sm:min-h-[640px]"
+            ? "h-[65svh] min-h-[480px] animate-pulse rounded-[28px] border border-edge-soft bg-elevated/30"
+            : "h-[65svh] min-h-[480px] animate-pulse bg-elevated/30 sm:h-[78vh] sm:min-h-[640px]"
         }
       />
     );
@@ -54,7 +54,7 @@ export function HeroCarousel({
   const shell =
     variant === "card"
       ? "app-hero group relative h-[560px] cursor-pointer overflow-hidden rounded-[28px] bg-canvas"
-      : "app-hero group relative h-[76svh] min-h-[540px] cursor-pointer overflow-hidden bg-canvas sm:h-[78vh] sm:min-h-[640px]";
+      : "app-hero group relative h-[65svh] min-h-[480px] cursor-pointer overflow-hidden bg-canvas sm:h-[78vh] sm:min-h-[640px]";
 
   return (
     <div className="flex flex-col gap-4">

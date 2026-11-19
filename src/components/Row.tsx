@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { IS_ANDROID_TV } from "../lib/platform";
 
 const GAP = 20;
 
@@ -35,7 +36,8 @@ export function Row({
   const trackRef = useRef<HTMLDivElement>(null);
   const onEndReachedRef = useRef(onEndReached);
   onEndReachedRef.current = onEndReached;
-  const [cellWidth, setCellWidth] = useState(min);
+  const minimum = IS_ANDROID_TV ? Math.round(min * 1.3) : min;
+  const [cellWidth, setCellWidth] = useState(minimum);
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(false);
 
@@ -45,14 +47,14 @@ export function Row({
     const measure = () => {
       const width = el.clientWidth;
       if (width <= 0) return;
-      const fits = Math.max(1, Math.floor((width + GAP) / (min + GAP)));
+      const fits = Math.max(1, Math.floor((width + GAP) / (minimum + GAP)));
       setCellWidth((width - (fits - 1) * GAP) / fits);
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [min]);
+  }, [minimum]);
 
   const updateArrows = useCallback(() => {
     const track = trackRef.current;

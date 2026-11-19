@@ -188,7 +188,13 @@ backend setting says.
   view changes, hero art, cards, dialogs and the seek bar; automatic carousels stop and
   nonessential transitions collapse under reduced motion. Wide viewports use
   left navigation; smaller ones use bottom navigation with a More sheet for every other
-  destination. Home and title details lead with full-width artwork, and rails, search,
+  destination. Android TV is identified by the native UI mode, which adds a WebView marker,
+  rather than by screen width. It gets an expandable icon sidebar, larger poster cells,
+  cinematic heroes and geometry-based D-pad focus with scoped dialogs and nearest-edge
+  scrolling. Phone Settings collapses its section rail into a horizontal strip; edge-to-edge
+  chrome respects safe areas, the soft keyboard resizes the activity, and touch controls and
+  text fields use phone-appropriate sizing. Home and title details lead with full-width
+  artwork, and rails, search,
   episodes and player controls adapt to touch layouts without dropping actions. The PWA
   manifest, icons and service worker cache the same-origin application shell for offline
   launches. A production browser renders `WebShell` instead of mounting native IPC:
@@ -1092,7 +1098,10 @@ is up; leaving the player pops the history entry it pushed.
   ship arm64-v8a and armeabi-v7a with 16 KB-aligned native libraries. Signing uses the
   ignored `keystore.properties` or `ZEILER_ANDROID_*` environment variables, never a
   committed key. `fastlane internal` uploads the signed AAB and localized metadata to
-  Play internal testing using `GOOGLE_PLAY_SERVICE_ACCOUNT_FILE`. Android uses Play or
+  Play internal testing using `GOOGLE_PLAY_SERVICE_ACCOUNT_FILE`. Tagged release builds decode
+  `ZEILER_ANDROID_KEYSTORE_BASE64` into the runner's temporary directory, build and signature-check
+  the universal APK and AAB, and upload both to the draft; `publish` refuses a release missing
+  either package. Android uses Play or
   a same-signed newer APK for updates, not the desktop updater plugin. Its network
   security config permits the engine's loopback HTTP and the plain-HTTP streams the
   desktop also accepts. Android third-party notices include the Maven/Kotlin libraries

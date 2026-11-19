@@ -279,9 +279,12 @@ physical device. Android playback uses Media3 in `src-tauri/gen/android` and
 `src-tauri/src/commands/mpv/android.rs`, not desktop libmpv/mpv.
 
 Release signing reads `src-tauri/gen/android/keystore.properties` or the `ZEILER_ANDROID_*`
-environment variables. Never commit the real properties, keystore or Play service-account
-JSON. See [README.md](README.md#building-from-source) and
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for packaging and platform details.
+environment variables. Tagged GitHub releases build and upload both the universal APK and AAB;
+they require `ZEILER_ANDROID_KEYSTORE_BASE64`, `ZEILER_ANDROID_KEYSTORE_PASSWORD`,
+`ZEILER_ANDROID_KEY_ALIAS` and `ZEILER_ANDROID_KEY_PASSWORD` repository secrets. Never commit
+the real properties, keystore or Play service-account JSON. See
+[README.md](README.md#building-from-source) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+for packaging and platform details.
 
 ## Licensing
 

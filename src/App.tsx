@@ -22,6 +22,8 @@ import { AddonDetailView } from "./views/addons/AddonDetail";
 import { InstallHost } from "./views/addons/InstallDialog";
 import { ProfilePicker } from "./views/profiles/ProfilePicker";
 import { openSettingsSection } from "./views/Settings";
+import { IS_ANDROID_TV } from "./lib/platform";
+import { focusTvStart, installTvNavigation } from "./lib/tv-navigation";
 import { DetailView } from "./views/Detail";
 import { DiscoverView } from "./views/Discover";
 import { HomeView } from "./views/Home";
@@ -72,8 +74,18 @@ function Shell() {
     if (hidden && top.kind !== "settings") setView("home");
   }, [hidden, top.kind, setView]);
 
+  useEffect(() => {
+    if (!IS_ANDROID_TV) return;
+    const uninstall = installTvNavigation();
+    const focus = window.setTimeout(focusTvStart, 50);
+    return () => {
+      window.clearTimeout(focus);
+      uninstall();
+    };
+  }, [root]);
+
   return (
-    <div className="relative flex h-full">
+    <div className={`relative flex h-full ${hideMobileNav ? "tv-without-sidebar" : ""}`}>
       <div className="contents" inert={overlays.length > 0}>
         {!hideMobileNav && <Sidebar />}
         {!hideMobileNav && <MobileNav />}

@@ -278,7 +278,7 @@ function IconButton({
       title={label}
       disabled={disabled}
       onClick={onClick}
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-canvas/60 hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-canvas/60 hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
     >
       {children}
     </button>

@@ -257,20 +257,109 @@ dialog::backdrop {
   display: none;
 }
 
+:root {
+  --topbar-height: 4rem;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --topbar-height: 5rem;
+  }
+}
+
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.android {
+  height: 100dvh;
+}
+
+.android .app-topbar {
+  height: calc(var(--topbar-height) + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+}
+
+@media (max-width: 639px) {
+  .android input,
+  .android select,
+  .android textarea {
+    font-size: 16px;
+  }
+}
+
 .android-tv .app-sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  display: flex;
+  width: 6rem;
+  overflow: hidden;
+  background: rgb(10 22 26 / 0.96);
+  transition: width 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
+}
+.android-tv .app-sidebar:hover,
+.android-tv .app-sidebar:focus-within {
+  width: 15rem;
+  box-shadow: 24px 0 64px rgb(0 0 0 / 0.55);
+}
+.android-tv .app-sidebar-brand {
+  justify-content: center;
+  padding: 0;
+}
+.android-tv .app-sidebar-wordmark,
+.android-tv .app-sidebar-label,
+.android-tv .app-profile-chip > span {
+  display: none;
+}
+.android-tv .app-sidebar:focus-within .app-sidebar-wordmark,
+.android-tv .app-sidebar:hover .app-sidebar-wordmark,
+.android-tv .app-sidebar:focus-within .app-sidebar-label,
+.android-tv .app-sidebar:hover .app-sidebar-label,
+.android-tv .app-sidebar:focus-within .app-profile-chip > span,
+.android-tv .app-sidebar:hover .app-profile-chip > span {
   display: flex;
 }
+.android-tv .app-sidebar:focus-within .app-sidebar-brand,
+.android-tv .app-sidebar:hover .app-sidebar-brand {
+  justify-content: flex-start;
+  padding-inline: 1.5rem;
+}
+.android-tv .app-sidebar nav button {
+  justify-content: center;
+  padding-inline: 0;
+}
+.android-tv .app-sidebar:focus-within nav button,
+.android-tv .app-sidebar:hover nav button {
+  justify-content: flex-start;
+  padding-inline: 1rem;
+}
+.android-tv .app-sidebar-disclaimer {
+  display: none;
+}
 .android-tv .app-topbar {
-  left: 15rem;
+  left: 6rem;
+}
+.android-tv .app-topbar-home,
+.android-tv .app-topbar-profile {
+  display: none;
 }
 .android-tv .app-mobile-nav {
   display: none;
 }
 .android-tv .app-content {
+  margin-left: 6rem;
   padding-bottom: 0;
 }
+.android-tv .tv-without-sidebar .app-content {
+  margin-left: 0;
+}
+.android-tv .tv-without-sidebar .app-topbar {
+  left: 0;
+}
 .android-tv .app-hero {
-  height: 88svh;
+  height: 78svh;
   min-height: 0;
 }
 .android-tv .scroll-snap-x-mandatory,
@@ -279,4 +368,20 @@ dialog::backdrop {
 }
 .android-tv [data-poster-row] > * {
   scroll-snap-align: none;
+}
+.android-tv button:focus-visible,
+.android-tv a:focus-visible,
+.android-tv [role="button"]:focus-visible,
+.android-tv [tabindex]:focus-visible {
+  outline: 3px solid var(--color-ink);
+  outline-offset: 4px;
+}
+.android-tv [role="dialog"] {
+  font-size: 1.05rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .android-tv .app-sidebar {
+    transition: none;
+  }
 }

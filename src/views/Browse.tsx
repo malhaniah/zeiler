@@ -61,7 +61,7 @@ export function BrowseView({ frame }: { frame: BrowseFrame }) {
 
   return (
     <main className="absolute inset-0 z-30 overflow-y-auto bg-canvas">
-      <header className="relative flex flex-col gap-6 px-12 pb-8 pt-28">
+      <header className="relative flex flex-col gap-6 px-5 sm:px-8 lg:px-12 pb-8 pt-28">
         <div className="flex items-center gap-3">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-elevated/70 text-ink-muted">
             <LayoutGrid size={16} />
@@ -70,7 +70,7 @@ export function BrowseView({ frame }: { frame: BrowseFrame }) {
             Browse
           </span>
         </div>
-        <h1 className="font-display text-[56px] font-medium leading-[0.95] tracking-tight text-ink">
+        <h1 className="font-display text-[36px] font-medium leading-[0.95] tracking-tight text-ink sm:text-[56px]">
           {[typeLabel(type), ...extra.filter((e) => e.name === "genre").map((e) => e.value)].join(" · ")}
         </h1>
 
@@ -135,7 +135,7 @@ export function BrowseView({ frame }: { frame: BrowseFrame }) {
         })}
       </header>
 
-      <div className="flex flex-col gap-8 px-12 pb-24">
+      <div className="flex flex-col gap-8 px-5 sm:px-8 lg:px-12 pb-24">
         {ref ? (
           <BrowseGrid key={ref.key} catalog={ref} onOpen={openMeta} />
         ) : (

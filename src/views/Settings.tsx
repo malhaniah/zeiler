@@ -141,11 +141,11 @@ export function SettingsView() {
   const meta = SECTIONS.flatMap((g) => g.items).find((i) => i.id === active)!;
 
   return (
-    <div className="flex h-full bg-canvas">
-      <nav className="relative flex w-72 shrink-0 flex-col gap-5 overflow-y-auto bg-surface px-4 pb-8 pt-24 shadow-[1px_0_0_var(--color-edge)]">
+    <div className="flex h-full flex-col bg-canvas md:flex-row">
+      <nav className="no-scrollbar relative flex w-full shrink-0 flex-row gap-2 overflow-x-auto bg-surface px-4 pb-3 pt-[calc(5rem+env(safe-area-inset-top))] shadow-[0_1px_0_var(--color-edge)] md:w-72 md:flex-col md:gap-5 md:overflow-y-auto md:px-4 md:pb-8 md:pt-24 md:shadow-[1px_0_0_var(--color-edge)]">
         {SECTIONS.map((group) => (
-          <div key={group.group} className="flex flex-col gap-0.5">
-            <div className="px-3.5 pb-1.5 pt-1 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-ink-subtle/80">
+          <div key={group.group} className="flex shrink-0 gap-1 md:flex-col md:gap-0.5">
+            <div className="hidden px-3.5 pb-1.5 pt-1 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-ink-subtle/80 md:block">
               {group.group}
             </div>
             {group.items.map((item) => {
@@ -155,14 +155,14 @@ export function SettingsView() {
                 <button
                   key={item.id}
                   onClick={() => setActive(item.id)}
-                  className={`group flex h-14 w-full items-center gap-3 rounded-xl px-2.5 text-left transition-colors ${
+                  className={`group flex h-12 shrink-0 items-center gap-2 rounded-xl px-3 text-left transition-colors md:h-14 md:w-full md:gap-3 md:px-2.5 ${
                     isActive
                       ? "bg-raised text-ink shadow-[inset_0_0_0_1px_var(--color-edge)]"
                       : "text-ink-muted hover:bg-elevated/70 hover:text-ink"
                   }`}
                 >
                   <span
-                    className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl md:h-10 md:w-10 ${
                       isActive
                         ? "bg-elevated text-ink shadow-[inset_0_0_0_1px_var(--color-edge-soft)]"
                         : "bg-canvas/60 text-ink-subtle group-hover:text-ink-muted"
@@ -170,7 +170,7 @@ export function SettingsView() {
                   >
                     <Icon size={20} strokeWidth={1.6} />
                   </span>
-                  <span className="flex-1 truncate text-[14.5px] font-medium">{item.label}</span>
+                  <span className="whitespace-nowrap text-[14px] font-medium md:flex-1 md:truncate md:text-[14.5px]">{item.label}</span>
                 </button>
               );
             })}
@@ -178,13 +178,13 @@ export function SettingsView() {
         ))}
       </nav>
 
-      <main className="flex-1 overflow-y-auto pb-16 pt-28">
-        <div data-tauri-drag-region className="mx-auto flex max-w-3xl flex-col gap-10 px-12">
+      <main className="flex-1 overflow-y-auto pb-16 pt-7 md:pt-28">
+        <div data-tauri-drag-region className="mx-auto flex max-w-3xl flex-col gap-6 px-5 sm:px-8 md:gap-10 lg:px-12">
           <header className="flex flex-col gap-2">
-            <h1 className="font-display text-[44px] font-medium leading-[1.05] tracking-tight text-ink">
+            <h1 className="font-display text-[32px] font-medium leading-[1.05] tracking-tight text-ink md:text-[44px]">
               {meta.label}
             </h1>
-            <p className="text-[15px] text-ink-muted">{meta.sub}</p>
+            <p className="text-[14px] leading-relaxed text-ink-muted md:text-[15px]">{meta.sub}</p>
           </header>
 
           {active === "account" && (

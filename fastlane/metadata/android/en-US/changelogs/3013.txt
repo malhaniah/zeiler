@@ -1,0 +1,1 @@
+Added native Android TV detection, a cinematic TV sidebar, reliable D-pad focus, responsive phone settings, larger touch targets, soft-keyboard fixes, and Zeiler launcher icons. Releases now include signed APK and AAB packages.

@@ -14,10 +14,10 @@ export function Sidebar() {
       <button
         data-tauri-drag-region
         onClick={() => setView("home")}
-        className="flex h-20 shrink-0 items-center gap-2 px-6 text-left text-ink"
+        className="app-sidebar-brand flex h-20 shrink-0 items-center gap-2 px-6 text-left text-ink"
       >
         <img src={zeilerLogo} alt="" className="pointer-events-none h-11 w-11 shrink-0 select-none" />
-        <span className="pointer-events-none font-brand text-[30px] font-medium tracking-tight">
+        <span className="app-sidebar-wordmark pointer-events-none font-brand text-[30px] font-medium tracking-tight">
           Zeiler
         </span>
       </button>
@@ -40,7 +40,7 @@ export function Sidebar() {
       </div>
 
       <ProfileChip />
-      <div className="px-6 pb-5 text-[11px] leading-relaxed text-ink-subtle/70">
+      <div className="app-sidebar-disclaimer px-6 pb-5 text-[11px] leading-relaxed text-ink-subtle/70">
         Zeiler hosts no media, indexes no media, and ships no content addon.
       </div>
     </aside>
@@ -69,7 +69,7 @@ function NavItem({ entry, active, onSelect }: { entry: NavEntry; active: boolean
         strokeWidth={active ? 2.1 : 1.7}
         className="transition-transform duration-200 group-hover/nav:-translate-y-0.5"
       />
-      <span className="flex-1 text-left">{entry.label}</span>
+      <span className="app-sidebar-label flex-1 text-left">{entry.label}</span>
     </button>
   );
 }

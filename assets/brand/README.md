@@ -13,7 +13,8 @@ to SVG, as black ink on white paper (2048 × 2048).
 Elsewhere: `src/assets/zeiler-logo-white.png` (the sidebar), `website/public/logo-*.png`
 (the site header), and `app-icon.png` at the repo root, which is the white ship on
 Zeiler's canvas colour (`#111213`). `app-icon.png` is the source of every OS icon in
-`src-tauri/icons/` and of the site's `favicon.png` and `apple-touch-icon.png`. The OS icon
+`src-tauri/icons/`, the Android launcher assets under `src-tauri/gen/android/app/src/main/res/`,
+and of the site's `favicon.png` and `apple-touch-icon.png`. The OS icon
 has a dark tile on purpose: a white ship on a transparent icon would vanish on light
 taskbars, in Finder and in the installer.
 

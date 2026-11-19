@@ -129,7 +129,7 @@ export function Modal({
           <button
             type="button"
             aria-label={`Close ${title}`}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted hover:bg-raised hover:text-ink"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-muted hover:bg-raised hover:text-ink"
             onClick={onClose}
           >
             ✕
@@ -181,7 +181,7 @@ export function SectionCard({
   children: ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-4 rounded-2xl border border-edge-soft bg-elevated/40 p-7">
+    <section className="flex flex-col gap-4 rounded-2xl border border-edge-soft bg-elevated/40 p-5 sm:p-7">
       <div className="flex flex-col gap-1">
         <h2 className="text-[19px] font-medium tracking-tight text-ink">{title}</h2>
         {description && (
@@ -279,7 +279,7 @@ export function ChipPicker<T extends string | number>({
         <button
           key={String(option)}
           onClick={() => onChange(option)}
-          className={`rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition-colors ${
+          className={`min-h-11 rounded-full px-4 py-2 text-[12px] font-semibold transition-colors ${
             option === value
               ? "bg-ink text-canvas"
               : "bg-raised text-ink-muted hover:bg-elevated hover:text-ink"
