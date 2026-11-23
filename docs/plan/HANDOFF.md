@@ -6,7 +6,7 @@ v0.2.0 the same day, and again on 2026-10-17 when M7 to M13 were merged for v0.3
 
 ## Where things stand
 
-- **Releasing as v0.3.14** (2026-11-23): #72 (Android TV remote focus flow) and the Android
+- **Released as v0.3.14** (2026-11-23): #72 (Android TV remote focus flow) and the Android
   SDK release setup fix already on main.
 - **In review:** #55, the Android TV prototype's findings (docs only): go, as a milestone
   of its own (M15, about 9–12 weeks). See "Android TV prototype" below.
