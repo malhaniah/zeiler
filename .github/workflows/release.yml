@@ -24,6 +24,11 @@ env:
 
     **Sailor is now Zeiler.** Sailor installs update to Zeiler on their own and keep your addons and settings. On Windows the update also removes Sailor. On macOS the app keeps the name `Sailor.app` in Applications: rename it to `Zeiler.app`, or replace it with the new `.dmg`.
 
+    ### 0.3.14 — Android TV remote navigation
+    - Home starts on the featured action, and carousel indicators use one D-pad stop with Left/Right slide switching.
+    - The sidebar skips the duplicate Zeiler logo action on TV, and focused controls remain visible when returning to content.
+    - Fixed Android SDK setup in release builds.
+
     ### 0.3.13 — Android phone and TV
     - Android TV now uses native device detection, a cinematic expandable sidebar, larger artwork, and reliable D-pad focus and activation.
     - Phone layouts adapt to narrow screens with a compact Settings rail, larger touch targets, safe-area spacing, working soft-keyboard resizing, and legible system bars.
