@@ -1,0 +1,1 @@
+Improved Android TV remote focus, carousel navigation and sidebar behavior. Fixed Android SDK setup in release builds.
