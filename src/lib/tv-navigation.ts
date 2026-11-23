@@ -32,21 +32,32 @@ function focusScope(): HTMLElement | Document {
 }
 
 function candidates(scope: HTMLElement | Document): HTMLElement[] {
-  return Array.from(scope.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(visible);
+  return Array.from(scope.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+    (element) => element.tabIndex >= 0 && visible(element),
+  );
 }
 
 function preferredFocus(): HTMLElement | null {
   const scope = focusScope();
   if (scope !== document) return candidates(scope)[0] ?? null;
-  return (
-    document.querySelector<HTMLElement>(".app-sidebar [aria-current='page']") ??
-    candidates(scope)[0] ??
-    null
-  );
+  const available = candidates(scope);
+  const content = available.find((element) => element.hasAttribute("data-tv-start"));
+  if (content) return content;
+  const current = document.querySelector<HTMLElement>(".app-sidebar [aria-current='page']");
+  if (current && visible(current)) return current;
+  return available[0] ?? null;
 }
 
-export function focusTvStart() {
+export function focusTvStart(preferContent = false) {
   const active = document.activeElement;
+  if (
+    preferContent &&
+    active instanceof HTMLElement &&
+    active.matches(".app-sidebar [aria-current='page']")
+  ) {
+    preferredFocus()?.focus({ preventScroll: true });
+    return;
+  }
   if (active instanceof HTMLElement && active !== document.body && visible(active)) return;
   preferredFocus()?.focus({ preventScroll: true });
 }

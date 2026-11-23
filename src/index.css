@@ -352,6 +352,9 @@ textarea {
   margin-left: 6rem;
   padding-bottom: 0;
 }
+.android-tv .app-content main {
+  scroll-padding-block: 2rem;
+}
 .android-tv .tv-without-sidebar .app-content {
   margin-left: 0;
 }
