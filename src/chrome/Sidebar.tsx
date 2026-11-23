@@ -1,4 +1,5 @@
 import zeilerLogo from "../assets/zeiler-logo-white.png";
+import { IS_ANDROID_TV } from "../lib/platform";
 import { useSettings } from "../lib/store";
 import { type RootView, useView } from "../lib/view";
 import { ProfileChip } from "../views/profiles/ProfileChip";
@@ -13,6 +14,7 @@ export function Sidebar() {
     <aside className="app-sidebar relative z-[60] hidden w-60 shrink-0 flex-col border-r border-edge-soft bg-canvas xl:flex">
       <button
         data-tauri-drag-region
+        tabIndex={IS_ANDROID_TV ? -1 : undefined}
         onClick={() => setView("home")}
         className="app-sidebar-brand flex h-20 shrink-0 items-center gap-2 px-6 text-left text-ink"
       >

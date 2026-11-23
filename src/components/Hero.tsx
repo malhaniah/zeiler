@@ -1,6 +1,8 @@
 import { Info, Play, TrendingUp } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import type { MetaPreview } from "../lib/types";
+import { IS_ANDROID_TV } from "../lib/platform";
+import { focusTvStart } from "../lib/tv-navigation";
 import { fallbackGradient } from "./Poster";
 
 /**
@@ -22,9 +24,14 @@ export function HeroCarousel({
 }) {
   const [active, setActive] = useState(0);
   const hovered = useRef(false);
+  const pagination = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setActive((current) => Math.max(0, Math.min(current, items.length - 1)));
+  }, [items.length]);
+
+  useEffect(() => {
+    if (IS_ANDROID_TV && items.length > 0) focusTvStart(true);
   }, [items.length]);
 
   useEffect(() => {
@@ -57,33 +64,62 @@ export function HeroCarousel({
       : "app-hero group relative h-[65svh] min-h-[480px] cursor-pointer overflow-hidden bg-canvas sm:h-[78vh] sm:min-h-[640px]";
 
   return (
-    <div className="flex flex-col gap-4">
+    <div
+      className="flex flex-col gap-4"
+      onFocusCapture={() => (hovered.current = true)}
+      onBlurCapture={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) hovered.current = false;
+      }}
+    >
       <section
         className={shell}
         style={{ isolation: "isolate" }}
         onMouseEnter={() => (hovered.current = true)}
         onMouseLeave={() => (hovered.current = false)}
-        onFocusCapture={() => (hovered.current = true)}
-        onBlurCapture={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) hovered.current = false;
-        }}
         onClick={() => onOpen(items[safeActive])}
       >
         {items.map((meta, i) => (
-          <Slide key={meta.id} meta={meta} active={i === safeActive} variant={variant} rank={i + 1} typeLabel={typeLabel} onOpen={onOpen} />
+          <Slide
+            key={meta.id}
+            meta={meta}
+            active={i === safeActive}
+            variant={variant}
+            rank={i + 1}
+            typeLabel={typeLabel}
+            onOpen={onOpen}
+            pagination={pagination}
+          />
         ))}
       </section>
       {items.length > 1 && (
-        <div className={`flex justify-center gap-2.5 ${variant === "bleed" ? "-mt-12 relative z-10 pb-2" : "pt-1"}`}>
+        <div
+          ref={pagination}
+          className={`flex justify-center gap-2.5 ${variant === "bleed" ? "-mt-12 relative z-10 pb-2" : "pt-1"}`}
+        >
           {items.map((_, i) => (
             <button
               key={i}
               aria-label={`Slide ${i + 1}`}
+              aria-current={i === safeActive ? "true" : undefined}
+              tabIndex={IS_ANDROID_TV ? (i === safeActive ? 0 : -1) : undefined}
               onClick={() => setActive(i)}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                i === safeActive ? "w-12 bg-ink" : "w-6 bg-ink-muted/70 hover:bg-ink-muted"
-              }`}
-            />
+              onKeyDown={(e) => {
+                if (!IS_ANDROID_TV || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+                e.preventDefault();
+                e.stopPropagation();
+                const next = (safeActive + (e.key === "ArrowRight" ? 1 : -1) + items.length) % items.length;
+                setActive(next);
+                pagination.current?.querySelectorAll<HTMLButtonElement>("button")[next]?.focus({ preventScroll: true });
+              }}
+              className="flex h-11 w-11 items-center justify-center"
+            >
+              <span
+                aria-hidden
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  i === safeActive ? "w-10 bg-ink" : "w-6 bg-ink-muted/70 hover:bg-ink-muted"
+                }`}
+              />
+            </button>
           ))}
         </div>
       )}
@@ -98,6 +134,7 @@ function Slide({
   rank,
   typeLabel,
   onOpen,
+  pagination,
 }: {
   meta: MetaPreview;
   active: boolean;
@@ -105,6 +142,7 @@ function Slide({
   rank: number;
   typeLabel: string;
   onOpen: (meta: MetaPreview) => void;
+  pagination: RefObject<HTMLDivElement | null>;
 }) {
   const [logoOk, setLogoOk] = useState(true);
   const art = meta.background ?? meta.poster;
@@ -189,9 +227,18 @@ function Slide({
           </div>
           <div className="mt-6 flex gap-3 sm:mt-9">
             <button
+              data-tv-start={active ? "" : undefined}
               onClick={(e) => {
                 e.stopPropagation();
                 onOpen(meta);
+              }}
+              onKeyDown={(e) => {
+                if (!IS_ANDROID_TV || e.key !== "ArrowDown") return;
+                const dot = pagination.current?.querySelector<HTMLButtonElement>("button[aria-current='true']");
+                if (!dot) return;
+                e.preventDefault();
+                e.stopPropagation();
+                dot.focus({ preventScroll: true });
               }}
               className="button-primary"
             >
